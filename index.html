@@ -177,57 +177,81 @@
   ::selection{ background:var(--cobalt-tint); }
 
   .phone-only{ display:none !important; }
+  .phone-label{ display:none; }
   #cardInput{ display:none; }
   @media (max-width:700px){
     .phone-only{ display:inline-flex !important; }
+    .phone-label{ display:inline; } .desk-label{ display:none; }
     .desk-only{ display:none !important; }
     body{ padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
     .topbar{ align-items:center; margin-bottom:12px; gap:10px; }
     .brand{ gap:4px; }
-    .brand-mark svg{ height:28px; }
-    .brand h1{ font-size:17px; }
+    .brand-mark svg{ height:34px; }
+    .brand h1{ font-size:22px; }
     .brand p{ display:none; }
-    #syncLine{ display:block; font-size:11px; }
+    #syncLine{ display:block; font-size:12.5px; }
     .actions{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .actions .btn{ justify-content:center; padding:11px 12px; font-size:14px; }
-    #toolSwitcher, #signOutBtn{ padding:9px 10px; font-size:12.5px; }
+    .actions .btn{ justify-content:center; padding:14px 12px; font-size:17px; }
+    #toolSwitcher, #signOutBtn{ padding:12px 10px; font-size:15px; }
     .summary{ grid-template-columns:repeat(3,1fr); margin-bottom:12px; }
-    .summary .cell{ padding:10px 10px; }
-    .summary .num{ font-size:19px; }
-    .summary .lbl{ font-size:9.5px; letter-spacing:.05em; }
+    .summary .cell{ padding:14px 12px; }
+    .summary .num{ font-size:26px; }
+    .summary .lbl{ font-size:11.5px; letter-spacing:.04em; }
     .tabs{ margin-bottom:12px; }
-    .tab{ padding:11px 12px; font-size:14px; }
-    .filterbar select, .filterbar input[type=text]{ font-size:15px; padding:10px 11px; flex:1 1 100%; }
+    .tab{ padding:13px 14px; font-size:17px; }
+    .tab .ct{ font-size:13px; }
+    .filterbar select, .filterbar input[type=text]{ font-size:17px; padding:13px 12px; flex:1 1 100%; }
     .filterbar #refreshBtn, .filterbar #delSelectedBtn{ display:none !important; }
     .filterbar{ gap:8px; }
     .filterbar #fSource, .filterbar #fRole{ display:none !important; }
-    .filterbar #fOwner, .filterbar #fStatus{ flex:1 1 calc(50% - 4px); }
+    .filterbar #fOwner, .filterbar #fStatus{ flex:1 1 0; min-width:0; }
+    .filterbar #fSearch{ flex:1 1 100%; min-width:0; order:5; }
+    .filterbar .count-pill{ order:6; }
     .filterbar .spacer{ display:none; }
     .filterbar .count-pill{ flex:1 1 100%; }
     .phonebar .btn{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #lgSave{ width:100%; justify-content:center; padding:13px; font-size:15px; }
-    .queue-item{ padding:14px; gap:10px; }
+    #lgSave{ width:100%; justify-content:center; padding:16px; font-size:18px; }
+    .queue-item{ padding:18px; gap:12px; }
+    .queue-group h3{ font-size:13px; }
+    .kind{ font-size:12px; }
+    .queue-item .when{ font-size:15px; }
     .queue-item .main{ flex:1 1 100%; }
-    .queue-item .linkish{ font-size:15.5px; }
-    .queue-item .why{ font-size:13px; }
+    .queue-item .linkish{ font-size:19px; }
+    .queue-item .why{ font-size:15.5px; margin-top:4px; }
     .queue-item .acts{ flex:1 1 100%; }
-    .queue-item .acts .btn{ flex:1; justify-content:center; padding:11px; font-size:14px; }
-    .btn-sm{ padding:9px 12px; font-size:13.5px; }
-    table{ font-size:14px; }
-    td{ padding:12px 10px; }
+    .queue-item .acts .btn{ flex:1; justify-content:center; padding:15px; font-size:17px; }
+    .btn-sm{ padding:12px 14px; font-size:16px; }
+    .btn{ font-size:16px; }
+    table{ font-size:17px; }
+    thead th{ font-size:12.5px; }
+    .sub{ font-size:14px; }
+    .pill{ font-size:13.5px; padding:4px 10px; }
+    td{ padding:16px 12px; }
+    input.touch-date{ font-size:14px; padding:7px 6px; width:128px; }
+    .tbl-co th:nth-child(3), .tbl-co td:nth-child(3), .tbl-co th:nth-child(11), .tbl-co td:nth-child(11){ display:none; }
+    .tbl-co td:nth-child(2){ width:100%; }
+    .tbl-co .pill{ font-size:12.5px; padding:3px 8px; }
+    .tablewrap table{ min-width:0; }
     .tbl-co th:nth-child(1), .tbl-co td:nth-child(1), .tbl-co th:nth-child(n+4):nth-child(-n+9), .tbl-co td:nth-child(n+4):nth-child(-n+9){ display:none; }
     .tbl-ct th:nth-child(1), .tbl-ct td:nth-child(1), .tbl-ct th:nth-child(3), .tbl-ct td:nth-child(3), .tbl-ct th:nth-child(4), .tbl-ct td:nth-child(4),
     .tbl-ct th:nth-child(5), .tbl-ct td:nth-child(5), .tbl-ct th:nth-child(n+7):nth-child(-n+9), .tbl-ct td:nth-child(n+7):nth-child(-n+9){ display:none; }
     .modal-head{ padding:14px 16px 4px; position:sticky; top:0; background:var(--surface); z-index:5; border-bottom:1px solid var(--line); }
-    .modal-head h2{ font-size:18px; }
+    .modal-head h2{ font-size:23px; }
+    .modal-head p{ font-size:15px; }
     .modal-body{ padding:12px 16px 18px; }
     .modal-foot{ padding:12px 16px 20px; flex-wrap:wrap; }
     .x{ font-size:30px; padding:4px 10px; }
-    .fb input, .fb select, .fb textarea{ font-size:16px; padding:11px 12px; }
-    .typebtn{ padding:8px 12px; font-size:13px; }
-    .quickdates button{ padding:7px 10px; font-size:12.5px; }
+    .fb label{ font-size:14.5px; }
+    .fb input, .fb select, .fb textarea{ font-size:17px; padding:14px 12px; }
+    .section-title{ font-size:13px; }
+    .card{ font-size:16px; padding:14px; }
+    .card .meta, .tl .meta{ font-size:13.5px; }
+    .tl{ font-size:16px; }
+    .checks{ font-size:16px; }
+    .typebtn{ padding:11px 15px; font-size:16px; }
+    .quickdates button{ padding:10px 12px; font-size:15px; }
     .phonebar{ display:flex !important; gap:8px; margin:0 0 12px; }
-    .phonebar .btn{ flex:1; justify-content:center; padding:12px; font-size:15px; }
+    .phonebar .btn{ flex:1; justify-content:center; padding:16px 10px; font-size:18px; }
     .detail-cols > div:last-child{ order:-1; }
     .scan-status{ text-align:center; padding:36px 10px; }
   }
@@ -275,7 +299,7 @@
       <button class="btn btn-ghost desk-only" id="pullProspectBtn">From CRE Cold Outreach</button>
       <button class="btn btn-ghost desk-only" id="importBtn">Import CSV</button>
       <button class="btn btn-ghost desk-only" id="exportBtn">Export</button>
-      <button class="btn btn-primary" id="addCompanyBtn">+ Add company</button>
+      <button class="btn btn-primary" id="addCompanyBtn"><span class="desk-label">+ Add company</span><span class="phone-label">+ Add</span></button>
       <select id="toolSwitcher" class="btn">
         <option value="">Switch tool…</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-hub/">Terminal</option>
