@@ -199,6 +199,7 @@
       <div>
         <h1 class="display">CRM</h1>
         <p>Every company and person, every touch. Feeds the Pipeline and the Referral Partner Tracker.</p>
+        <p class="sub" id="syncLine"></p>
       </div>
     </div>
     <div class="actions">
@@ -229,6 +230,7 @@
     <button class="tab" data-view="today">Today<span class="ct" id="ct-today">0</span></button>
     <button class="tab" data-view="companies">Companies<span class="ct" id="ct-companies">0</span></button>
     <button class="tab" data-view="contacts">Contacts<span class="ct" id="ct-contacts">0</span></button>
+    <button class="tab" data-view="inbox">Inbox leads<span class="ct" id="ct-inbox">0</span></button>
     <button class="tab" data-view="campaigns">Sources &amp; Campaigns</button>
   </div>
 
@@ -262,7 +264,7 @@
   var OWNERS = ['Curtis','Armen','Lina','Alex'];
   var STATUSES = ['Prospect','Working','Qualified','Client','Partner','Nurture','Dead','Do Not Contact'];
   var CLOSED = { 'Dead':1, 'Do Not Contact':1 };
-  var SOURCES = ['Outbound','COI','Bank','Website','SEM','Note card','Govcon','UCC','Prospect engine','Event','LinkedIn','Other'];
+  var SOURCES = ['Outbound','COI','Bank','Website','Inbox','SEM','Note card','Govcon','UCC','Prospect engine','Event','LinkedIn','Other'];
   var ROLES = ['Owner','Decision maker','CFO/Controller','COI','Lender','CPA','Attorney','Wealth advisor','Other'];
   var ACT_TYPES = ['Call','Email','Meeting','Note card','LinkedIn','Text','Note'];
   var OUTCOMES = ['','Connected','Left VM','No answer','Replied','Meeting set','Not interested','Bad info'];
@@ -277,7 +279,8 @@
     filters:{ owner:'', status:'', source:'', role:'', search:'' },
     sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' } },
     openId:null, logType:'Call',
-    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'' }
+    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'' },
+    leads:[], syncStatus:null
   };
 
   // ---------- helpers ----------
@@ -358,13 +361,15 @@
       get('/debt_deals?select=id,company_name,stage,instrument_type,estimated_amount,actual_commission,funded_date,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
       get('/cre_deals?select=id,company_name,stage,deal_type,requested_amount,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
       get('/slb_deals?select=id,company_name,stage,estimated_amount,actual_commission,funded_date,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
-      get('/referral_partners?select=id,partner_name,partner_type,status,crm_contact_id,crm_company_id')
+      get('/referral_partners?select=id,partner_name,partner_type,status,crm_contact_id,crm_company_id'),
+      get('/crm_inbox_leads?select=*&status=eq.new&order=received_at.desc&limit=200').catch(function(){ return []; }),
+      api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; })
     ]);
     state.companies=r[0]||[]; state.contacts=r[1]||[]; state.activities=r[2]||[]; state.campaigns=r[3]||[];
     state.deals = (r[4]||[]).map(function(d){ d.table='debt_deals'; d.pipe='Credit'; d.amount=d.estimated_amount; return d; })
       .concat((r[5]||[]).map(function(d){ d.table='cre_deals'; d.pipe='CRE'; d.amount=d.requested_amount; d.instrument_type=CRE_TYPES[d.deal_type]||'CRE'; return d; }))
       .concat((r[6]||[]).map(function(d){ d.table='slb_deals'; d.pipe='SLB'; d.amount=d.estimated_amount; d.instrument_type='SLB'; return d; }));
-    state.partners=r[7]||[];
+    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null;
   }
   function dealOpen(d){ return ['Dead','Funded','SLB Dead','SLB Closed'].indexOf(d.stage)<0; }
   function dealLink(d){
@@ -557,6 +562,42 @@
     return h;
   }
 
+  // ---------- inbox leads (strangers who wrote to contact@) ----------
+  var FREE_MAIL = /^(gmail|yahoo|hotmail|outlook|live|aol|icloud|me|msn|comcast|att|sbcglobal|verizon|proton|protonmail)\./i;
+  function leadCompanyName(l){
+    var dom=(l.from_email.split('@')[1]||'');
+    if(!dom || FREE_MAIL.test(dom)) return l.from_name||l.from_email;
+    var base=dom.split('.').slice(0,-1).join(' ').replace(/[-_]/g,' ');
+    return base.replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  }
+  function renderInbox(){
+    $('countPill').textContent=state.leads.length?state.leads.length+' to review':'';
+    if(!state.leads.length) return '<div class="empty"><div class="display">No new inbox leads.</div><p>Anyone who emails contact@ and is not already in the CRM shows up here, with newsletters and automated mail filtered out. Add them as a company or dismiss them.</p></div>';
+    return '<div class="tablewrap"><table><thead><tr><th>From</th><th>Subject</th><th>Received</th><th></th></tr></thead><tbody>'+
+      state.leads.map(function(l){
+        return '<tr><td><b>'+esc(l.from_name||l.from_email)+'</b><div class="sub">'+esc(l.from_email)+'</div></td><td>'+esc(l.subject||'(no subject)')+'</td>'+
+          '<td>'+esc(fmtWhen(l.received_at))+'</td><td style="white-space:nowrap"><button class="btn btn-sm btn-primary" data-leadadd="'+esc(l.id)+'">Add as company</button> <button class="btn btn-sm" data-leaddismiss="'+esc(l.id)+'">Dismiss</button></td></tr>';
+      }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Only the sender, subject, and time are kept. Open Outlook for the message itself.</p>';
+  }
+  async function leadAction(id, act){
+    var l=state.leads.filter(function(x){ return x.id===id; })[0]; if(!l) return;
+    if(act==='dismiss'){
+      try{ await patch('crm_inbox_leads', id, { status:'dismissed', handled_by:who(), handled_at:new Date().toISOString() }); await refresh(); toast('Dismissed'); }catch(e){ toast('Failed: '+e.message); }
+      return;
+    }
+    var nm=(l.from_name||'').replace(/["']/g,'').trim().split(/\s+/);
+    openAddCompany({ name:leadCompanyName(l), source:'Inbox', first:nm[0]||'', last:nm.slice(1).join(' '), email:l.from_email,
+      onSaved:function(coId){ return patch('crm_inbox_leads', id, { status:'added', company_id:coId, handled_by:who(), handled_at:new Date().toISOString() }); } });
+  }
+  function renderSyncLine(){
+    var el=$('syncLine'); if(!el) return; var st=state.syncStatus;
+    if(!st||!st.last_run_at){ el.textContent=''; return; }
+    var mins=Math.round((Date.now()-Date.parse(st.last_run_at))/60000);
+    var ago=mins<1?'just now':(mins<60?mins+' min ago':Math.round(mins/60)+' hr ago');
+    var bad=st.error||mins>60;
+    el.innerHTML='<span style="color:'+(bad?'var(--red)':'var(--ink-faint)')+'">Outlook sync: '+(st.error?'failing ('+esc(st.error)+'). Check the Microsoft client secret.':'last run '+ago)+'</span>';
+  }
+
   // ---------- summary ----------
   function renderSummary(){
     var t=today(), wkAgo=new Date(Date.now()-7*864e5).toISOString(), own=state.filters.owner;
@@ -574,6 +615,8 @@
     $('ct-today').textContent=q.filter(function(i){ return i.date<=t; }).length;
     $('ct-companies').textContent=state.companies.filter(function(c){ return !CLOSED[c.status]; }).length;
     $('ct-contacts').textContent=state.contacts.length;
+    $('ct-inbox').textContent=state.leads.length;
+    renderSyncLine();
   }
 
   function renderFilters(){
@@ -582,10 +625,12 @@
     $('fSource').innerHTML=opts(SOURCES, state.filters.source, 'All sources');
     $('fRole').innerHTML=opts(ROLES, state.filters.role, 'All roles');
     var v=state.view;
-    $('fStatus').style.display=(v==='today'||v==='campaigns')?'none':'';
-    $('fSource').style.display=(v==='today'||v==='campaigns')?'none':'';
-    $('fRole').style.display=(v==='today'||v==='campaigns')?'none':'';
-    $('fSearch').style.display=(v==='campaigns'||v==='today')?'none':'';
+    var simple=(v==='today'||v==='campaigns'||v==='inbox');
+    $('fStatus').style.display=simple?'none':'';
+    $('fSource').style.display=simple?'none':'';
+    $('fRole').style.display=simple?'none':'';
+    $('fSearch').style.display=simple?'none':'';
+    $('fOwner').style.display=v==='inbox'?'none':'';
   }
   function render(){
     renderSummary();
@@ -595,6 +640,7 @@
     if(v==='today'){ $('countPill').textContent=''; $('view').innerHTML=renderToday(); }
     else if(v==='companies') $('view').innerHTML=renderCompanies();
     else if(v==='contacts') $('view').innerHTML=renderContacts();
+    else if(v==='inbox') $('view').innerHTML=renderInbox();
     else $('view').innerHTML=renderCampaigns();
   }
 
@@ -629,8 +675,8 @@
       '<div class="fb"><label>Source</label><select id="acSource">'+opts(SOURCES, prefill.source||'', 'Choose')+'</select></div><div class="fb"><label>Campaign</label><select id="acCampaign">'+campaignOpts('')+'</select></div>'+
       '<div class="fb" style="grid-column:1/-1"><label>Referred by (COI)</label><select id="acReferrer">'+opts(state.contacts.filter(function(c){ return hasRole(c,'COI'); }).map(function(c){ var co=company(c.company_id); return { v:c.id, l:fullName(c)+(co?' · '+co.name:'') }; }), '', 'Nobody')+'</select></div>'+
       '</div><div class="section-title">First contact</div><div class="grid2">'+
-      '<div class="fb"><label>First name</label><input id="acFirst"></div><div class="fb"><label>Last name</label><input id="acLast"></div>'+
-      '<div class="fb"><label>Title</label><input id="acTitle"></div><div class="fb"><label>Email</label><input id="acEmail"></div>'+
+      '<div class="fb"><label>First name</label><input id="acFirst" value="'+esc(prefill.first||'')+'"></div><div class="fb"><label>Last name</label><input id="acLast" value="'+esc(prefill.last||'')+'"></div>'+
+      '<div class="fb"><label>Title</label><input id="acTitle"></div><div class="fb"><label>Email</label><input id="acEmail" value="'+esc(prefill.email||'')+'"></div>'+
       '<div class="fb"><label>Phone</label><input id="acPhone"></div><div class="fb"><label>Next touch</label><input type="date" id="acNext" value="'+addDays(1)+'"></div>'+
       '<div class="fb" style="grid-column:1/-1"><label>Roles</label>'+roleChecks('acRoles',['Owner'])+'</div></div></div>'+
       '<div class="modal-foot"><span class="sub">Duplicates are checked on name, email, and phone.</span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="acSave">Add company</button></div></div>');
@@ -657,6 +703,7 @@
       try{
         await insert('crm_companies',[co]); if(ct) await insert('crm_contacts',[ct]);
         await insert('crm_activities',[{ id:uid('act'), company_id:co.id, type:'System', body:'Company created'+(co.source?' · source: '+co.source:''), owner:co.owner, created_by:who() }]);
+        if(prefill.onSaved) await prefill.onSaved(co.id);
         await refresh(); toast('Company added'); openCompany(co.id);
       }catch(e){ this.disabled=false; toast('Save failed: '+e.message); }
     });
@@ -716,7 +763,7 @@
       (tasks.length?tasks.map(function(a){ return '<div class="card"><div class="row"><div>'+esc(a.subject||a.body)+'<div class="meta '+touchClass(a.due_date)+'">Due '+esc(fmtDate(a.due_date))+' · '+esc(a.owner||'')+'</div></div><button class="btn btn-sm" data-taskdone="'+esc(a.id)+'">Done</button></div></div>'; }).join(''):'<div class="sub">None.</div>');
     right+='<div class="section-title">Activity</div><div class="timeline">'+
       (history_.length?history_.map(function(a){ var c=a.contact_id?contact(a.contact_id):null;
-        return '<div class="tl'+(a.type==='Task'?' task':'')+'"><div class="meta"><b>'+esc(a.type)+'</b>'+(a.outcome?' · '+esc(a.outcome):'')+(c?' · '+esc(fullName(c)):'')+' · '+esc(fmtWhen(a.created_at))+' · '+esc((a.created_by||'').split('@')[0])+'</div><div class="body">'+esc(a.subject?a.subject+(a.body?'\n'+a.body:''):a.body)+'</div></div>'; }).join('')
+        return '<div class="tl'+(a.type==='Task'?' task':'')+'"><div class="meta"><b>'+esc(a.type)+(a.direction==='in'?' in':a.direction==='out'?' out':'')+'</b>'+(a.source==='outlook'?' · Outlook':'')+''+(a.outcome?' · '+esc(a.outcome):'')+(c?' · '+esc(fullName(c)):'')+' · '+esc(fmtWhen(a.created_at))+' · '+esc((a.created_by||'').split('@')[0])+'</div><div class="body">'+esc(a.subject?a.subject+(a.body?'\n'+a.body:''):a.body)+'</div></div>'; }).join('')
         :'<div class="sub">No activity yet.</div>')+'</div>';
 
     showModal('<div class="modal-head"><div><h2 class="display">'+esc(co.name)+'</h2><p>'+statusPill(co.status)+' '+esc([co.industry, co.city&&co.state?co.city+', '+co.state:(co.city||co.state), co.source?'Source: '+co.source:''].filter(Boolean).join(' · '))+
@@ -1050,7 +1097,7 @@
   async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
 
   document.addEventListener('click', function(e){
-    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],#addCampaignBtn');
+    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],#addCampaignBtn');
     if(!t) return;
     if(t.hasAttribute('data-close')){ closeModal(); return; }
     if(t.hasAttribute('data-open')){ openCompany(t.getAttribute('data-open'), { focusLog:t.hasAttribute('data-focuslog') }); return; }
@@ -1069,6 +1116,8 @@
     if(t.hasAttribute('data-editcamp')){ openCampaign(t.getAttribute('data-editcamp')); return; }
     if(t.id==='addCampaignBtn'){ openCampaign(null); return; }
     if(t.hasAttribute('data-pull')){ pullProspect(t.getAttribute('data-pull')); return; }
+    if(t.hasAttribute('data-leadadd')){ leadAction(t.getAttribute('data-leadadd'),'add'); return; }
+    if(t.hasAttribute('data-leaddismiss')){ leadAction(t.getAttribute('data-leaddismiss'),'dismiss'); return; }
   });
   document.addEventListener('change', function(e){
     var t=e.target;
