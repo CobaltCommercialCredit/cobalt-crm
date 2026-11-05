@@ -296,7 +296,7 @@
     </div>
     <div class="actions">
       <button class="btn btn-primary phone-only" id="scanCardBtn">Scan card</button>
-      <button class="btn btn-ghost desk-only" id="pullProspectBtn">From CRE Cold Outreach</button>
+      <button class="btn btn-ghost desk-only" id="pullProspectBtn">From CRE Prospector</button>
       <button class="btn btn-ghost desk-only" id="importBtn">Import CSV</button>
       <button class="btn btn-ghost desk-only" id="exportBtn">Export</button>
       <button class="btn btn-primary" id="addCompanyBtn"><span class="desk-label">+ Add company</span><span class="phone-label">+ Add</span></button>
@@ -305,7 +305,7 @@
         <option value="https://cobaltcommercialcredit.github.io/cobalt-hub/">Terminal</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-debt-deals/">Pipeline</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-referral-partners/">Referral Partners</option>
-        <option value="https://cobaltcommercialcredit.github.io/cobalt-prospect-engine/">CRE Cold Outreach</option>
+        <option value="https://cobaltcommercialcredit.github.io/cobalt-prospect-engine/">CRE Prospector</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-bank-matrix/">Bank Matrix</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-treasury-audit/">Treasury Firepower Audit</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-debt-capacity-calc/">Debt Capacity Calculator</option>
@@ -360,7 +360,7 @@
   var OWNERS = ['Curtis','Armen','Lina','Alex'];
   var STATUSES = ['Prospect','Working','Qualified','Client','Partner','Nurture','Dead','Do Not Contact'];
   var CLOSED = { 'Dead':1, 'Do Not Contact':1 };
-  var SOURCES = ['Outbound','COI','Bank','Website','Inbox','SEM','Note card','Govcon','UCC','Prospect engine','Event','LinkedIn','Other'];
+  var SOURCES = ['Outbound','COI','Bank','Website','Inbox','SEM','Note card','Govcon','UCC','CRE Prospector','Event','LinkedIn','Other'];
   var ROLES = ['Owner','Decision maker','CFO/Controller','COI','Lender','CPA','Attorney','Wealth advisor','Other'];
   var ACT_TYPES = ['Call','Email','Meeting','Note card','LinkedIn','Text','Note'];
   var OUTCOMES = ['','Connected','Left VM','No answer','Replied','Meeting set','Not interested','Bad info'];
@@ -942,7 +942,7 @@
           '<a class="btn btn-sm" href="'+esc(dealLink(d))+'" target="_blank" rel="noopener">Open in '+(d.table==='cre_deals'?'CRE calc':'Pipeline')+'</a></div></div>';
       }).join(''):'<div class="sub">No deals. Open one when the company qualifies; it lands in the right pipeline already linked.</div>');
 
-    if(co.linked_prospect_id) left+='<div class="section-title">CRE Cold Outreach record</div><div id="prospectBox" class="card sub">Loading…</div>';
+    if(co.linked_prospect_id) left+='<div class="section-title">CRE Prospector record</div><div id="prospectBox" class="card sub">Loading…</div>';
 
     var right='<div class="logbox" id="logbox"><div class="typebar">'+ACT_TYPES.map(function(t){ return '<button class="typebtn'+(t===state.logType?' on':'')+'" data-ltype="'+t+'">'+t+'</button>'; }).join('')+'<button class="typebtn'+(state.logType==='Task'?' on':'')+'" data-ltype="Task">Task</button></div>'+
       '<div class="grid2"><div class="fb"><label>With</label><select id="lgContact">'+opts(people.map(function(c){ return { v:c.id, l:fullName(c)||c.email }; }), people[0]?people[0].id:'', 'Company')+'</select></div>'+
@@ -986,7 +986,7 @@
       box.innerHTML='<dl class="kv">'+[['Owner',p.owner_name],['Property',p.situs_address],['Type',p.property_type],['Value',fmtMoney(p.property_value)],['Owner occupied',p.owner_occupied==null?'':(p.owner_occupied?'Yes':'No')],['Tenure',p.tenure_years?p.tenure_years+' yrs':''],
         ['Lien',[p.lien_lender,fmtMoney(p.lien_balance)].filter(Boolean).join(' · ')],['Maturity',fmtDate(p.lien_maturity_date)],['Engine status',p.status+(p.slb_stage?' · '+p.slb_stage:'')]]
         .filter(function(x){ return x[1]; }).map(function(x){ return '<dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd>'; }).join('')+'</dl>'+
-        '<div style="margin-top:8px"><a class="btn btn-sm" href="'+TOOL+'cobalt-prospect-engine/" target="_blank" rel="noopener">Open CRE Cold Outreach</a></div>';
+        '<div style="margin-top:8px"><a class="btn btn-sm" href="'+TOOL+'cobalt-prospect-engine/" target="_blank" rel="noopener">Open CRE Prospector</a></div>';
     }catch(e){ var b=$('prospectBox'); if(b) b.textContent='Could not load prospect.'; }
   }
 
@@ -1207,7 +1207,7 @@
 
   // ---------- Prospect Engine to CRM ----------
   function openProspectPull(){
-    showModal('<div class="modal-head"><div><h2 class="display">Pull from CRE Cold Outreach</h2><p>That tool stays your deal list. Pull a record here once someone is actually working it; the two stay linked both ways.</p></div><button class="x" data-close>×</button></div>'+
+    showModal('<div class="modal-head"><div><h2 class="display">Pull from CRE Prospector</h2><p>That tool stays your deal list. Pull a record here once someone is actually working it; the two stay linked both ways.</p></div><button class="x" data-close>×</button></div>'+
       '<div class="modal-body"><div class="fb"><label>Search owner name or address</label><input id="ppSearch" placeholder="Type at least 2 characters"></div><div id="ppResults" style="margin-top:10px"></div></div>'+
       '<div class="modal-foot"><span class="sub">Records already in the CRM are marked.</span><button class="btn" data-close>Close</button></div>');
     var h;
@@ -1235,13 +1235,13 @@
       try{ await patch('prospects', pid, { crm_company_id:dups[0].co.id }); await patch('crm_companies', dups[0].co.id, { linked_prospect_id:pid }); await refresh(); toast('Linked to existing record'); openCompany(dups[0].co.id); }catch(e){ toast('Link failed: '+e.message); }
       return;
     }
-    var co={ id:uid('co'), name:firm||person, address:p.situs_address||p.mailing_address||'', status:'Working', owner:p.assigned_to||me(), source:'Prospect engine', linked_prospect_id:pid, next_touch_date:addDays(1), dedupe_key:normName(firm||person), created_by:who() };
+    var co={ id:uid('co'), name:firm||person, address:p.situs_address||p.mailing_address||'', status:'Working', owner:p.assigned_to||me(), source:'CRE Prospector', linked_prospect_id:pid, next_touch_date:addDays(1), dedupe_key:normName(firm||person), created_by:who() };
     var np=person.split(' ');
     var ct=(person||p.email||p.phone)?{ id:uid('ct'), company_id:co.id, first_name:np[0]||'', last_name:np.slice(1).join(' '), email:p.email||'', phone:p.phone||'', roles:['Owner'], is_primary:true, status:'Working', owner:co.owner, source:co.source, dedupe_key:normEmail(p.email)||null, created_by:who() }:null;
     try{
       await insert('crm_companies',[co]); if(ct) await insert('crm_contacts',[ct]);
       await patch('prospects', pid, { crm_company_id:co.id });
-      await logSystem(co.id, 'Pulled from CRE Cold Outreach');
+      await logSystem(co.id, 'Pulled from CRE Prospector');
       await refresh(); toast('Added to CRM'); openCompany(co.id);
     }catch(e){ toast('Could not add: '+e.message); }
   }
