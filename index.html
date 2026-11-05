@@ -230,6 +230,7 @@
     <button class="tab" data-view="today">Today<span class="ct" id="ct-today">0</span></button>
     <button class="tab" data-view="companies">Companies<span class="ct" id="ct-companies">0</span></button>
     <button class="tab" data-view="contacts">Contacts<span class="ct" id="ct-contacts">0</span></button>
+    <button class="tab" data-view="suggested">Suggested<span class="ct" id="ct-suggested">0</span></button>
     <button class="tab" data-view="inbox">Inbox leads<span class="ct" id="ct-inbox">0</span></button>
     <button class="tab" data-view="campaigns">Sources &amp; Campaigns</button>
   </div>
@@ -279,8 +280,8 @@
     filters:{ owner:'', status:'', source:'', role:'', search:'' },
     sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' } },
     openId:null, logType:'Call',
-    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'' },
-    leads:[], syncStatus:null
+    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'' },
+    leads:[], syncStatus:null, suggestions:[]
   };
 
   // ---------- helpers ----------
@@ -363,13 +364,14 @@
       get('/slb_deals?select=id,company_name,stage,estimated_amount,actual_commission,funded_date,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
       get('/referral_partners?select=id,partner_name,partner_type,status,crm_contact_id,crm_company_id'),
       get('/crm_inbox_leads?select=*&status=eq.new&order=received_at.desc&limit=200').catch(function(){ return []; }),
-      api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; })
+      api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; }),
+      get('/crm_suggested_contacts?select=*&order=last_seen.desc&limit=300').catch(function(){ return []; })
     ]);
     state.companies=r[0]||[]; state.contacts=r[1]||[]; state.activities=r[2]||[]; state.campaigns=r[3]||[];
     state.deals = (r[4]||[]).map(function(d){ d.table='debt_deals'; d.pipe='Credit'; d.amount=d.estimated_amount; return d; })
       .concat((r[5]||[]).map(function(d){ d.table='cre_deals'; d.pipe='CRE'; d.amount=d.requested_amount; d.instrument_type=CRE_TYPES[d.deal_type]||'CRE'; return d; }))
       .concat((r[6]||[]).map(function(d){ d.table='slb_deals'; d.pipe='SLB'; d.amount=d.estimated_amount; d.instrument_type='SLB'; return d; }));
-    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null;
+    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null; state.suggestions=r[10]||[];
   }
   function dealOpen(d){ return ['Dead','Funded','SLB Dead','SLB Closed'].indexOf(d.stage)<0; }
   function dealLink(d){
@@ -589,6 +591,89 @@
     openAddCompany({ name:leadCompanyName(l), source:'Inbox', first:nm[0]||'', last:nm.slice(1).join(' '), email:l.from_email,
       onSaved:function(coId){ return patch('crm_inbox_leads', id, { status:'added', company_id:coId, handled_by:who(), handled_at:new Date().toISOString() }); } });
   }
+  // ---------- suggested contacts (people you email who are not in the CRM yet) ----------
+  function cleanName(n, email){
+    n=(n||'').replace(/["']/g,'').replace(/\(.*?\)/g,'').trim();
+    if(/@/.test(n)) n='';
+    var m=n.match(/^([^,]+),\s*(.+)$/); if(m) n=m[2]+' '+m[1];
+    return n || email.split('@')[0].replace(/[._-]+/g,' ').replace(/\b\w/g,function(c){ return c.toUpperCase(); });
+  }
+  // Compare people by name without titles, suffixes, or punctuation: "Dr. Akash Jaggi" = "Akash Jaggi", "Doug Mock Jr." = "Doug Mock".
+  function personKey(n){
+    return (n||'').toLowerCase().replace(/[.,'"]/g,' ').split(/\s+/).filter(function(w){ return w && !/^(dr|mr|mrs|ms|miss|prof|jr|sr|ii|iii|iv|cpa|esq|md|phd|cfa|pe)$/.test(w); }).join(' ');
+  }
+  function siteDomain(w){ return (w||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').split(/[\/?#]/)[0]; }
+  function suggestionMatch(sg){
+    var nm=personKey(cleanName(sg.name, sg.email));
+    var byName=nm?state.contacts.filter(function(c){ return !normEmail(c.email) && personKey(fullName(c))===nm; }):[];
+    if(byName.length===1) return { kind:'name', contact:byName[0], company:company(byName[0].company_id) };
+    var dom=(sg.domain||'').toLowerCase();
+    if(dom && !FREE_MAIL.test(dom)){
+      var co=state.companies.filter(function(c){ return siteDomain(c.website)===dom; })[0];
+      if(!co){ var ct=state.contacts.filter(function(c){ return normEmail(c.email).split('@')[1]===dom && c.company_id; })[0]; if(ct) co=company(ct.company_id); }
+      if(co) return { kind:'domain', company:co };
+    }
+    return { kind:'none' };
+  }
+  function suggestionRows(){
+    var rank={ name:0, domain:1, none:2 };
+    return state.suggestions.map(function(sg){ return { sg:sg, m:suggestionMatch(sg) }; })
+      .sort(function(a,b){ return (rank[a.m.kind]-rank[b.m.kind]) || (b.sg.total-a.sg.total); });
+  }
+  function renderSuggested(){
+    var rows=suggestionRows();
+    $('countPill').textContent=rows.length?rows.length+' to review':'';
+    if(!rows.length) return '<div class="empty"><div class="display">No suggestions right now.</div><p>People you or Armen have a real back and forth with, who are not in the CRM yet, show up here. Add them and their past emails land on the company timeline.</p></div>';
+    return '<div class="tablewrap"><table><thead><tr><th>Person</th><th>Conversation</th><th>Looks like</th><th></th></tr></thead><tbody>'+
+      rows.map(function(x){
+        var sg=x.sg, m=x.m, nm=cleanName(sg.name, sg.email);
+        var conv=sg.total+' email'+(sg.total==1?'':'s')+(Number(sg.meetings)?' incl. '+sg.meetings+' meeting'+(sg.meetings==1?'':'s'):'')+' · '+(sg.msgs_in||0)+' in, '+(sg.msgs_out||0)+' out'+
+          '<div class="sub">'+esc((sg.team||[]).join(', '))+' · last '+esc(fmtDate(String(sg.last_seen).slice(0,10)))+'</div>';
+        var look, primary;
+        if(m.kind==='name'){ look='<b>'+esc(fullName(m.contact))+'</b>'+(m.company?' at '+esc(m.company.name):'')+'<div class="sub">Same name, no email on file</div>'; primary='<button class="btn btn-sm btn-primary" data-sgname="'+esc(sg.email)+'">Add email to '+esc(m.contact.first_name||fullName(m.contact))+'</button>'; }
+        else if(m.kind==='domain'){ look='<b>'+esc(m.company.name)+'</b><div class="sub">Same domain: '+esc(sg.domain)+'</div>'; primary='<button class="btn btn-sm btn-primary" data-sgdomain="'+esc(sg.email)+'">Add to '+esc(m.company.name)+'</button>'; }
+        else { look='<span class="sub">No match</span>'; primary='<button class="btn btn-sm btn-primary" data-sgnew="'+esc(sg.email)+'">New company</button>'; }
+        return '<tr><td><b>'+esc(nm)+'</b><div class="sub">'+esc(sg.email)+'</div></td><td>'+conv+'</td><td>'+look+'</td>'+
+          '<td style="white-space:nowrap">'+primary+' <button class="btn btn-sm" data-sgpick="'+esc(sg.email)+'">Add to…</button> <button class="btn btn-sm" data-sgdismiss="'+esc(sg.email)+'">Dismiss</button></td></tr>';
+      }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Built from who you email, not what you wrote. Only names, addresses, counts, and dates are kept, for 90 days.</p>';
+  }
+  async function markSuggestion(email, status){ await api('POST','/crm_suggestion_status',[{ email:email, status:status, handled_by:who() }],'resolution=merge-duplicates,return=minimal'); }
+  async function rescanPast(){ try{ var r=await api('POST','/rpc/crm_request_rescan',{}); toast(r&&r.started?'Pulling their past emails now, about a minute':'Past emails will be pulled on the next sync'); }catch(e){ toast('Saved. Past emails will appear on the next sync.'); } }
+  async function addPersonTo(sg, companyId){
+    var nm=cleanName(sg.name, sg.email).split(/\s+/);
+    var co=company(companyId);
+    await insert('crm_contacts',[{ id:uid('ct'), company_id:companyId, first_name:nm[0]||'', last_name:nm.slice(1).join(' '), email:sg.email, roles:[], is_primary:!contactsOf(companyId).length,
+      status:co?co.status:'Prospect', owner:co?co.owner:me(), source:co?co.source:'', dedupe_key:sg.email, created_by:who() }]);
+    await logSystem(companyId, 'Added '+(nm.join(' ')||sg.email)+' from email suggestions');
+    await markSuggestion(sg.email,'added');
+  }
+  async function suggestionAction(act, email){
+    var sg=state.suggestions.filter(function(x){ return x.email===email; })[0]; if(!sg) return;
+    var m=suggestionMatch(sg);
+    try{
+      if(act==='dismiss'){ await markSuggestion(email,'dismissed'); await refresh(); toast('Dismissed. Won\'t be suggested again.'); return; }
+      if(act==='name'){ await patch('crm_contacts', m.contact.id, { email:email, dedupe_key:email }); await markSuggestion(email,'added'); await refresh(); toast('Email added to '+fullName(m.contact)); rescanPast(); return; }
+      if(act==='domain'){ await addPersonTo(sg, m.company.id); await refresh(); toast('Added to '+m.company.name); rescanPast(); return; }
+      if(act==='new'){
+        var nm=cleanName(sg.name, sg.email).split(/\s+/), dom=sg.domain||'';
+        openAddCompany({ name: FREE_MAIL.test(dom)?nm.join(' '):leadCompanyName({ from_email:email, from_name:sg.name }), first:nm[0]||'', last:nm.slice(1).join(' '), email:email,
+          onSaved:function(){ return markSuggestion(email,'added').then(rescanPast); } });
+        return;
+      }
+      if(act==='pick'){
+        showModal('<div class="modal-head"><div><h2 class="display">Add '+esc(cleanName(sg.name, sg.email))+' to a company</h2><p>'+esc(email)+'</p></div><button class="x" data-close>×</button></div>'+
+          '<div class="modal-body"><div class="fb"><label>Company</label><select id="sgCompany">'+opts(state.companies.filter(function(c){ return !CLOSED[c.status]; }).map(function(c){ return { v:c.id, l:c.name }; }), m.company?m.company.id:'', 'Choose a company')+'</select></div></div>'+
+          '<div class="modal-foot"><span></span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="sgSave">Add person</button></div></div>');
+        $('sgSave').addEventListener('click', async function(){
+          var cid=val('sgCompany'); if(!cid){ toast('Choose a company'); return; }
+          this.disabled=true;
+          try{ await addPersonTo(sg, cid); closeModal(); await refresh(); toast('Added to '+company(cid).name); rescanPast(); }catch(e){ this.disabled=false; toast('Failed: '+e.message); }
+        });
+        return;
+      }
+    }catch(e){ toast('Failed: '+e.message); }
+  }
+
   function renderSyncLine(){
     var el=$('syncLine'); if(!el) return; var st=state.syncStatus;
     if(!st||!st.last_run_at){ el.textContent=''; return; }
@@ -616,6 +701,7 @@
     $('ct-companies').textContent=state.companies.filter(function(c){ return !CLOSED[c.status]; }).length;
     $('ct-contacts').textContent=state.contacts.length;
     $('ct-inbox').textContent=state.leads.length;
+    $('ct-suggested').textContent=state.suggestions.length;
     renderSyncLine();
   }
 
@@ -625,12 +711,12 @@
     $('fSource').innerHTML=opts(SOURCES, state.filters.source, 'All sources');
     $('fRole').innerHTML=opts(ROLES, state.filters.role, 'All roles');
     var v=state.view;
-    var simple=(v==='today'||v==='campaigns'||v==='inbox');
+    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested');
     $('fStatus').style.display=simple?'none':'';
     $('fSource').style.display=simple?'none':'';
     $('fRole').style.display=simple?'none':'';
     $('fSearch').style.display=simple?'none':'';
-    $('fOwner').style.display=v==='inbox'?'none':'';
+    $('fOwner').style.display=(v==='inbox'||v==='suggested')?'none':'';
   }
   function render(){
     renderSummary();
@@ -641,6 +727,7 @@
     else if(v==='companies') $('view').innerHTML=renderCompanies();
     else if(v==='contacts') $('view').innerHTML=renderContacts();
     else if(v==='inbox') $('view').innerHTML=renderInbox();
+    else if(v==='suggested') $('view').innerHTML=renderSuggested();
     else $('view').innerHTML=renderCampaigns();
   }
 
@@ -1097,7 +1184,7 @@
   async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
 
   document.addEventListener('click', function(e){
-    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],#addCampaignBtn');
+    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],#addCampaignBtn');
     if(!t) return;
     if(t.hasAttribute('data-close')){ closeModal(); return; }
     if(t.hasAttribute('data-open')){ openCompany(t.getAttribute('data-open'), { focusLog:t.hasAttribute('data-focuslog') }); return; }
@@ -1116,6 +1203,8 @@
     if(t.hasAttribute('data-editcamp')){ openCampaign(t.getAttribute('data-editcamp')); return; }
     if(t.id==='addCampaignBtn'){ openCampaign(null); return; }
     if(t.hasAttribute('data-pull')){ pullProspect(t.getAttribute('data-pull')); return; }
+    var sgAct=['sgname','sgdomain','sgnew','sgpick','sgdismiss'].filter(function(a){ return t.hasAttribute('data-'+a); })[0];
+    if(sgAct){ suggestionAction(sgAct.slice(2), t.getAttribute('data-'+sgAct)); return; }
     if(t.hasAttribute('data-leadadd')){ leadAction(t.getAttribute('data-leadadd'),'add'); return; }
     if(t.hasAttribute('data-leaddismiss')){ leadAction(t.getAttribute('data-leaddismiss'),'dismiss'); return; }
   });
