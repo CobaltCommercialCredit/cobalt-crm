@@ -2,9 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#002347">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cobalt CRM">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>Cobalt CRM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -170,6 +176,63 @@
   #csvInput{ display:none; }
   ::selection{ background:var(--cobalt-tint); }
 
+  .phone-only{ display:none !important; }
+  #cardInput{ display:none; }
+  @media (max-width:700px){
+    .phone-only{ display:inline-flex !important; }
+    .desk-only{ display:none !important; }
+    body{ padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+    .topbar{ align-items:center; margin-bottom:12px; gap:10px; }
+    .brand{ gap:4px; }
+    .brand-mark svg{ height:28px; }
+    .brand h1{ font-size:17px; }
+    .brand p{ display:none; }
+    #syncLine{ display:block; font-size:11px; }
+    .actions{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .actions .btn{ justify-content:center; padding:11px 12px; font-size:14px; }
+    #toolSwitcher, #signOutBtn{ padding:9px 10px; font-size:12.5px; }
+    .summary{ grid-template-columns:repeat(3,1fr); margin-bottom:12px; }
+    .summary .cell{ padding:10px 10px; }
+    .summary .num{ font-size:19px; }
+    .summary .lbl{ font-size:9.5px; letter-spacing:.05em; }
+    .tabs{ margin-bottom:12px; }
+    .tab{ padding:11px 12px; font-size:14px; }
+    .filterbar select, .filterbar input[type=text]{ font-size:15px; padding:10px 11px; flex:1 1 100%; }
+    .filterbar #refreshBtn, .filterbar #delSelectedBtn{ display:none !important; }
+    .filterbar{ gap:8px; }
+    .filterbar #fSource, .filterbar #fRole{ display:none !important; }
+    .filterbar #fOwner, .filterbar #fStatus{ flex:1 1 calc(50% - 4px); }
+    .filterbar .spacer{ display:none; }
+    .filterbar .count-pill{ flex:1 1 100%; }
+    .phonebar .btn{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #lgSave{ width:100%; justify-content:center; padding:13px; font-size:15px; }
+    .queue-item{ padding:14px; gap:10px; }
+    .queue-item .main{ flex:1 1 100%; }
+    .queue-item .linkish{ font-size:15.5px; }
+    .queue-item .why{ font-size:13px; }
+    .queue-item .acts{ flex:1 1 100%; }
+    .queue-item .acts .btn{ flex:1; justify-content:center; padding:11px; font-size:14px; }
+    .btn-sm{ padding:9px 12px; font-size:13.5px; }
+    table{ font-size:14px; }
+    td{ padding:12px 10px; }
+    .tbl-co th:nth-child(1), .tbl-co td:nth-child(1), .tbl-co th:nth-child(n+4):nth-child(-n+9), .tbl-co td:nth-child(n+4):nth-child(-n+9){ display:none; }
+    .tbl-ct th:nth-child(1), .tbl-ct td:nth-child(1), .tbl-ct th:nth-child(3), .tbl-ct td:nth-child(3), .tbl-ct th:nth-child(4), .tbl-ct td:nth-child(4),
+    .tbl-ct th:nth-child(5), .tbl-ct td:nth-child(5), .tbl-ct th:nth-child(n+7):nth-child(-n+9), .tbl-ct td:nth-child(n+7):nth-child(-n+9){ display:none; }
+    .modal-head{ padding:14px 16px 4px; position:sticky; top:0; background:var(--surface); z-index:5; border-bottom:1px solid var(--line); }
+    .modal-head h2{ font-size:18px; }
+    .modal-body{ padding:12px 16px 18px; }
+    .modal-foot{ padding:12px 16px 20px; flex-wrap:wrap; }
+    .x{ font-size:30px; padding:4px 10px; }
+    .fb input, .fb select, .fb textarea{ font-size:16px; padding:11px 12px; }
+    .typebtn{ padding:8px 12px; font-size:13px; }
+    .quickdates button{ padding:7px 10px; font-size:12.5px; }
+    .phonebar{ display:flex !important; gap:8px; margin:0 0 12px; }
+    .phonebar .btn{ flex:1; justify-content:center; padding:12px; font-size:15px; }
+    .detail-cols > div:last-child{ order:-1; }
+    .scan-status{ text-align:center; padding:36px 10px; }
+  }
+  .phonebar{ display:none; }
+
   @media (max-width:860px){
     .wrap{ padding:16px 16px 60px; }
     .summary{ grid-template-columns:repeat(3,1fr); }
@@ -208,9 +271,10 @@
       </div>
     </div>
     <div class="actions">
-      <button class="btn btn-ghost" id="pullProspectBtn">From CRE Cold Outreach</button>
-      <button class="btn btn-ghost" id="importBtn">Import CSV</button>
-      <button class="btn btn-ghost" id="exportBtn">Export</button>
+      <button class="btn btn-primary phone-only" id="scanCardBtn">Scan card</button>
+      <button class="btn btn-ghost desk-only" id="pullProspectBtn">From CRE Cold Outreach</button>
+      <button class="btn btn-ghost desk-only" id="importBtn">Import CSV</button>
+      <button class="btn btn-ghost desk-only" id="exportBtn">Export</button>
       <button class="btn btn-primary" id="addCompanyBtn">+ Add company</button>
       <select id="toolSwitcher" class="btn">
         <option value="">Switch tool…</option>
@@ -226,6 +290,7 @@
       </select>
       <button class="btn btn-ghost" id="signOutBtn">Sign out</button>
       <input type="file" id="csvInput" accept=".csv,.txt">
+      <input type="file" id="cardInput" accept="image/*" capture="environment">
     </div>
   </div>
 
@@ -487,7 +552,7 @@
     $('countPill').textContent=rows.length+' compan'+(rows.length===1?'y':'ies')+(hidden>0&&(state.filters.owner||state.filters.status||state.filters.source||state.filters.role||state.filters.search)?' · '+hidden+' hidden by filters':'');
     if(!rows.length) return '<div class="empty"><div class="display">No companies match.</div><p>Add one, import a list, or pull records from the Prospect Engine. Dead and Do Not Contact records are hidden unless you filter for them or search.</p></div>';
     var allSel=rows.length&&rows.every(function(co){ return state.selected.companies[co.id]; });
-    return '<div class="tablewrap"><table><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('companies','name','Company')+th('companies','status','Status')+th('companies','contact','Primary contact')+
+    return '<div class="tablewrap"><table class="tbl-co"><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('companies','name','Company')+th('companies','status','Status')+th('companies','contact','Primary contact')+
       th('companies','owner','Owner')+'<th class="hide-sm" data-sort="companies|source">Source</th>'+th('companies','annual_revenue','Revenue')+th('companies','deals','Open deals')+
       th('companies','last_touch_date','Last touch')+th('companies','next_touch_date','Next touch')+'<th></th></tr></thead><tbody>'+
       rows.map(function(co){
@@ -521,7 +586,7 @@
     $('countPill').textContent=rows.length+' contact'+(rows.length===1?'':'s');
     if(!rows.length) return '<div class="empty"><div class="display">No contacts match.</div><p>Contacts live under a company. Open a company to add people, or filter by role to see your COIs.</p></div>';
     var allSelC=rows.length&&rows.every(function(c){ return state.selected.contacts[c.id]; });
-    return '<div class="tablewrap"><table><thead><tr><th class="sel"><input type="checkbox" data-selall="contacts"'+(allSelC?' checked':'')+' title="Select all shown"></th>'+th('contacts','name','Name')+th('contacts','company','Company')+'<th>Roles</th>'+th('contacts','email','Email')+th('contacts','phone','Phone')+
+    return '<div class="tablewrap"><table class="tbl-ct"><thead><tr><th class="sel"><input type="checkbox" data-selall="contacts"'+(allSelC?' checked':'')+' title="Select all shown"></th>'+th('contacts','name','Name')+th('contacts','company','Company')+'<th>Roles</th>'+th('contacts','email','Email')+th('contacts','phone','Phone')+
       th('contacts','last_touch_date','Last touch')+th('contacts','next_touch_date','Next touch')+'<th>COI</th><th></th></tr></thead><tbody>'+
       rows.map(function(c){
         var co=company(c.company_id);
@@ -773,15 +838,15 @@
     showModal('<div class="modal-head"><div><h2 class="display">Add a company</h2><p>The company and its first person. Banks, CPA firms, and law firms are companies too; set the person\'s role below.</p></div><button class="x" data-close>×</button></div>'+
       '<div class="modal-body"><div id="dupWarn"></div><div class="grid2">'+
       '<div class="fb" style="grid-column:1/-1"><label>Company name *</label><input id="acName" value="'+esc(prefill.name||'')+'"></div>'+
-      '<div class="fb"><label>Industry</label><input id="acIndustry"></div><div class="fb"><label>Annual revenue</label><input id="acRevenue" placeholder="e.g. 8.5M"></div>'+
-      '<div class="fb"><label>Website</label><input id="acWebsite"></div><div class="fb"><label>City, State</label><input id="acCity" placeholder="Irvine, CA"></div>'+
+      '<div class="fb"><label>Industry</label><input id="acIndustry" value="'+esc(prefill.industry||'')+'"></div><div class="fb"><label>Annual revenue</label><input id="acRevenue" placeholder="e.g. 8.5M"></div>'+
+      '<div class="fb"><label>Website</label><input id="acWebsite" value="'+esc(prefill.website||'')+'"></div><div class="fb"><label>City, State</label><input id="acCity" placeholder="Irvine, CA" value="'+esc(prefill.city||'')+'"></div>'+
       '<div class="fb"><label>Status</label><select id="acStatus">'+opts(STATUSES,prefill.status||'Prospect')+'</select></div><div class="fb"><label>Owner</label><select id="acOwner">'+opts(OWNERS, me(), 'Unassigned')+'</select></div>'+
       '<div class="fb"><label>Source</label><select id="acSource">'+opts(SOURCES, prefill.source||'', 'Choose')+'</select></div><div class="fb"><label>Campaign</label><select id="acCampaign">'+campaignOpts('')+'</select></div>'+
       '<div class="fb" style="grid-column:1/-1"><label>Referred by (COI)</label><select id="acReferrer">'+opts(state.contacts.filter(function(c){ return hasRole(c,'COI'); }).map(function(c){ var co=company(c.company_id); return { v:c.id, l:fullName(c)+(co?' · '+co.name:'') }; }), '', 'Nobody')+'</select></div>'+
       '</div><div class="section-title">First contact</div><div class="grid2">'+
       '<div class="fb"><label>First name</label><input id="acFirst" value="'+esc(prefill.first||'')+'"></div><div class="fb"><label>Last name</label><input id="acLast" value="'+esc(prefill.last||'')+'"></div>'+
-      '<div class="fb"><label>Title</label><input id="acTitle"></div><div class="fb"><label>Email</label><input id="acEmail" value="'+esc(prefill.email||'')+'"></div>'+
-      '<div class="fb"><label>Phone</label><input id="acPhone"></div><div class="fb"><label>Next touch</label><input type="date" id="acNext" value="'+addDays(1)+'"></div>'+
+      '<div class="fb"><label>Title</label><input id="acTitle" value="'+esc(prefill.title||'')+'"></div><div class="fb"><label>Email</label><input id="acEmail" value="'+esc(prefill.email||'')+'"></div>'+
+      '<div class="fb"><label>Phone</label><input id="acPhone" value="'+esc(prefill.phone||'')+'"></div><div class="fb"><label>Next touch</label><input type="date" id="acNext" value="'+addDays(1)+'"></div>'+
       '<div class="fb" style="grid-column:1/-1"><label>Roles</label>'+roleChecks('acRoles',prefill.roles||['Owner'])+'</div></div></div>'+
       '<div class="modal-foot"><span class="sub">Duplicates are checked on name, email, and phone.</span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="acSave">Add company</button></div></div>');
     var check=function(){
@@ -800,7 +865,7 @@
         campaign_id:val('acCampaign')||null, referred_by_contact_id:val('acReferrer')||null, next_touch_date:val('acNext')||null, dedupe_key:normName(name), created_by:who() };
       var ct=null;
       if(val('acFirst')||val('acLast')||val('acEmail')||val('acPhone')){
-        ct={ id:uid('ct'), company_id:co.id, first_name:val('acFirst'), last_name:val('acLast'), title:val('acTitle'), email:val('acEmail'), phone:val('acPhone'),
+        ct={ id:uid('ct'), company_id:co.id, first_name:val('acFirst'), last_name:val('acLast'), title:val('acTitle'), email:val('acEmail'), phone:val('acPhone'), mobile:prefill.mobile||'', notes:prefill.notes||'',
           roles:checked('acRoles'), is_primary:true, status:co.status, owner:co.owner, source:co.source, campaign_id:co.campaign_id, dedupe_key:normEmail(val('acEmail'))||null, created_by:who() };
       }
       this.disabled=true;
@@ -872,7 +937,7 @@
 
     showModal('<div class="modal-head"><div><h2 class="display">'+esc(co.name)+'</h2><p>'+statusPill(co.status)+' '+esc([co.industry, co.city&&co.state?co.city+', '+co.state:(co.city||co.state), co.source?'Source: '+co.source:''].filter(Boolean).join(' · '))+
       (ref?' · Referred by <b>'+esc(fullName(ref))+'</b>':'')+'</p></div><button class="x" data-close>×</button></div>'+
-      '<div class="modal-body">'+banners+'<div class="detail-cols"><div>'+left+'</div><div>'+right+'</div></div></div>'+
+      '<div class="modal-body">'+(people[0]&&(people[0].phone||people[0].mobile||people[0].email)?'<div class="phonebar">'+((people[0].mobile||people[0].phone)?'<a class="btn btn-primary" href="tel:'+esc(people[0].mobile||people[0].phone)+'">Call '+esc(people[0].first_name||'')+'</a>':'')+(people[0].email?'<a class="btn" href="mailto:'+esc(people[0].email)+'">Email</a>':'')+(people[0].mobile?'<a class="btn" href="sms:'+esc(people[0].mobile)+'">Text</a>':'')+'</div>':'')+banners+'<div class="detail-cols"><div>'+left+'</div><div>'+right+'</div></div></div>'+
       '<div class="modal-foot"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm" data-nurture="'+esc(id)+'">Move to Nurture</button><button class="btn btn-sm btn-danger" data-delco="'+esc(id)+'">Delete</button></div>'+
       '<span class="sub">Last touch '+esc(fmtDate(co.last_touch_date)||'never')+' · created '+esc(fmtDate(String(co.created_at||'').slice(0,10)))+'</span></div>', true);
     syncLogType();
@@ -1212,6 +1277,84 @@
     });
   }
 
+  // ---------- business card scan (phone) ----------
+  // The photo is shrunk on the phone, read by the scan-card function, then shown in a normal form to review.
+  // The photo itself is never stored.
+  function shrinkImage(file, maxSide){
+    return new Promise(function(resolve, reject){
+      var img=new Image(), url=URL.createObjectURL(file);
+      img.onload=function(){
+        var sc=Math.min(1, maxSide/Math.max(img.width, img.height));
+        var cv=document.createElement('canvas'); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL('image/jpeg',0.85).split(',')[1]);
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('Could not open that photo')); };
+      img.src=url;
+    });
+  }
+  async function scanCard(file){
+    showModal('<div class="modal-head"><div><h2 class="display">Reading card…</h2><p>About five seconds.</p></div><button class="x" data-close>×</button></div><div class="modal-body"><div class="scan-status sub">Reading name, company, email, and phone.</div></div>');
+    try{
+      var b64=await shrinkImage(file, 1600);
+      await ensureSession();
+      var res=await fetch(SUPABASE_URL+'/functions/v1/scan-card', { method:'POST', headers:sbHeaders(), body:JSON.stringify({ imageBase64:b64, mediaType:'image/jpeg' }) });
+      var data=await res.json().catch(function(){ return {}; });
+      if(!res.ok || !data.card) throw new Error(data.error||('Scan failed ('+res.status+')'));
+      if(data.card.error) throw new Error(data.card.error);
+      handleCard(data.card);
+    }catch(e){
+      showModal('<div class="modal-head"><div><h2 class="display">Couldn\'t read that card</h2><p>'+esc(e.message)+'</p></div><button class="x" data-close>×</button></div>'+
+        '<div class="modal-body"><p class="sub">Try again in better light with the card filling most of the frame, or add the person by hand.</p></div>'+
+        '<div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn btn-primary" id="scanRetry">Try again</button></div>');
+      $('scanRetry').addEventListener('click', function(){ closeModal(); $('cardInput').value=''; $('cardInput').click(); });
+    }
+  }
+  var CARD_ROLES={ bank:['Lender'], cpa:['CPA','COI'], attorney:['Attorney','COI'], wealth:['Wealth advisor','COI'], business:['Owner'] };
+  function handleCard(card){
+    var t=(card.title||'').toLowerCase();
+    var roles=(CARD_ROLES[card.cardType]||[]).slice();
+    if(card.cardType==='business'){ roles=/cfo|controller|finance/.test(t)?['CFO/Controller']:(/owner|founder|president|ceo|principal/.test(t)?['Owner','Decision maker']:['Decision maker']); }
+    var isPartner=['bank','cpa','attorney','wealth'].indexOf(card.cardType)>=0;
+    var addr=card.address||'', m=addr.match(/,\s*([^,]+),\s*([A-Z]{2})\b/);
+    var pre={ name:card.company||((card.firstName||'')+' '+(card.lastName||'')).trim(), first:card.firstName||'', last:card.lastName||'', title:card.title||'',
+      email:card.email||'', phone:card.phone||card.mobile||'', mobile:card.mobile||'', website:card.website||'', city:m?(m[1].trim()+', '+m[2]):'',
+      status:isPartner?'Working':'Prospect', source:'Event', roles:roles.length?roles:null,
+      notes:['Scanned from business card'+(card.credentials?' · '+card.credentials:''), addr?'Address: '+addr:''].filter(Boolean).join('\n') };
+    var dups=findDuplicates(pre.name, pre.email, pre.phone);
+    var dom=(pre.email.split('@')[1]||'').toLowerCase();
+    if(!dups.length && dom && !FREE_MAIL.test(dom)){
+      var byDom=state.companies.filter(function(c){ return siteDomain(c.website)===dom || contactsOf(c.id).some(function(k){ return normEmail(k.email).split('@')[1]===dom; }); })[0];
+      if(byDom) dups=[{ co:byDom, why:'Same email domain' }];
+    }
+    if(!dups.length){ openAddCompany(pre); return; }
+    var d=dups[0], person=(pre.first+' '+pre.last).trim()||pre.email;
+    showModal('<div class="modal-head"><div><h2 class="display">'+esc(person)+'</h2><p>'+esc([pre.title, pre.name].filter(Boolean).join(' · '))+'</p></div><button class="x" data-close>×</button></div>'+
+      '<div class="modal-body"><div class="banner amber"><b>'+esc(d.co.name)+'</b> is already in the CRM ('+esc(d.why)+').</div>'+
+      '<dl class="kv">'+[['Email',pre.email],['Phone',pre.phone],['Mobile',pre.mobile],['Website',pre.website]].filter(function(x){ return x[1]; }).map(function(x){ return '<dt>'+x[0]+'</dt><dd>'+esc(x[1])+'</dd>'; }).join('')+'</dl></div>'+
+      '<div class="modal-foot"><button class="btn" id="scanNew">New company instead</button><button class="btn btn-primary" id="scanAddTo">Add to '+esc(d.co.name)+'</button></div>');
+    $('scanNew').addEventListener('click', function(){ openAddCompany(pre); });
+    $('scanAddTo').addEventListener('click', async function(){
+      this.disabled=true;
+      var existing=state.contacts.filter(function(k){ return k.company_id===d.co.id && ((pre.email && normEmail(k.email)===normEmail(pre.email)) || (personKey(fullName(k))===personKey(person))); })[0];
+      try{
+        if(existing){
+          var f={}; ['title','phone','mobile','email'].forEach(function(k){ var v={ title:pre.title, phone:pre.phone, mobile:pre.mobile, email:pre.email }[k]; if(v && !existing[k]) f[k]=v; });
+          if(Object.keys(f).length) await patch('crm_contacts', existing.id, f);
+          await logSystem(d.co.id, 'Business card scanned for '+person+(Object.keys(f).length?'; filled in '+Object.keys(f).join(', '):''));
+          toast(Object.keys(f).length?'Updated '+person:person+' was already here');
+        } else {
+          await insert('crm_contacts',[{ id:uid('ct'), company_id:d.co.id, first_name:pre.first, last_name:pre.last, title:pre.title, email:pre.email, phone:pre.phone, mobile:pre.mobile,
+            roles:pre.roles||[], is_primary:!contactsOf(d.co.id).length, status:d.co.status, owner:d.co.owner||me(), source:'Event', notes:pre.notes, dedupe_key:normEmail(pre.email)||null, created_by:who() }]);
+          await logSystem(d.co.id, 'Added '+person+' from a business card');
+          toast('Added '+person+' to '+d.co.name);
+        }
+        await refresh(); openCompany(d.co.id);
+      }catch(e){ this.disabled=false; toast('Save failed: '+e.message); }
+    });
+  }
+
   // ---------- export ----------
   function exportCsv(){
     var rows=filteredCompanies().map(function(co){ var p=primaryOf(co.id), cmp=co.campaign_id?campaign(co.campaign_id):null;
@@ -1342,6 +1485,8 @@
     if(!window.Papa){ toast('CSV library did not load. Check your connection.'); return; }
     Papa.parse(f, { header:true, skipEmptyLines:true, complete:function(res){ var rows=res.data||[]; if(!rows.length){ toast('No rows found'); return; } openImport(rows, res.meta.fields||Object.keys(rows[0])); } });
   });
+  $('scanCardBtn').addEventListener('click', function(){ $('cardInput').value=''; $('cardInput').click(); });
+  $('cardInput').addEventListener('change', function(e){ var f=e.target.files[0]; if(f) scanCard(f); });
   $('toolSwitcher').addEventListener('change', function(){ if(this.value) window.location.href=this.value; });
   $('signOutBtn').addEventListener('click', function(){ clearSession(); showAuth(); });
 
@@ -1366,9 +1511,10 @@
   });
   $('authPassword').addEventListener('keydown', function(e){ if(e.key==='Enter') $('authSubmit').click(); });
 
+  if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
   (async function(){ loadSession(); if(await ensureSession()) showApp(); else showAuth(); })();
 
-  window.__crm = { state:state, queueItems:queueItems, findDuplicates:findDuplicates, parseMoney:parseMoney, normName:normName, openImport:openImport, openCompany:openCompany };
+  window.__crm = { scanCard:function(f){ return scanCard(f); }, handleCard:function(c){ return handleCard(c); }, state:state, queueItems:queueItems, findDuplicates:findDuplicates, parseMoney:parseMoney, normName:normName, openImport:openImport, openCompany:openCompany };
 })();
 </script>
 </body>
