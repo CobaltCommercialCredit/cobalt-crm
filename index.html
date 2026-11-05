@@ -602,6 +602,7 @@
   function personKey(n){
     return (n||'').toLowerCase().replace(/[.,'"]/g,' ').split(/\s+/).filter(function(w){ return w && !/^(dr|mr|mrs|ms|miss|prof|jr|sr|ii|iii|iv|cpa|esq|md|phd|cfa|pe)$/.test(w); }).join(' ');
   }
+  function looksLikeLender(d){ d=(d||'').toLowerCase(); return /\.bank$/.test(d) || /(bank|lending|capital|credit|financial|funding|finance)/.test(d.split('.')[0]); }
   function siteDomain(w){ return (w||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').split(/[\/?#]/)[0]; }
   function suggestionMatch(sg){
     var nm=personKey(cleanName(sg.name, sg.email));
@@ -632,9 +633,9 @@
         var look, primary;
         if(m.kind==='name'){ look='<b>'+esc(fullName(m.contact))+'</b>'+(m.company?' at '+esc(m.company.name):'')+'<div class="sub">Same name, no email on file</div>'; primary='<button class="btn btn-sm btn-primary" data-sgname="'+esc(sg.email)+'">Add email to '+esc(m.contact.first_name||fullName(m.contact))+'</button>'; }
         else if(m.kind==='domain'){ look='<b>'+esc(m.company.name)+'</b><div class="sub">Same domain: '+esc(sg.domain)+'</div>'; primary='<button class="btn btn-sm btn-primary" data-sgdomain="'+esc(sg.email)+'">Add to '+esc(m.company.name)+'</button>'; }
-        else { look='<span class="sub">No match</span>'; primary='<button class="btn btn-sm btn-primary" data-sgnew="'+esc(sg.email)+'">New company</button>'; }
+        else { look='<span class="sub">No match</span>'; primary='<button class="btn btn-sm btn-primary" data-sgnew="'+esc(sg.email)+'" title="Create their company with this person under it">'+(looksLikeLender(sg.domain)?'Add bank + person':'Add company + person')+'</button>'; }
         return '<tr><td><b>'+esc(nm)+'</b><div class="sub">'+esc(sg.email)+'</div></td><td>'+conv+'</td><td>'+look+'</td>'+
-          '<td style="white-space:nowrap">'+primary+' <button class="btn btn-sm" data-sgpick="'+esc(sg.email)+'">Add to…</button> <button class="btn btn-sm" data-sgdismiss="'+esc(sg.email)+'">Dismiss</button></td></tr>';
+          '<td style="white-space:nowrap">'+primary+' <button class="btn btn-sm" data-sgpick="'+esc(sg.email)+'" title="Add this person to a company already in the CRM">Add to existing…</button> <button class="btn btn-sm" data-sgdismiss="'+esc(sg.email)+'">Dismiss</button></td></tr>';
       }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Built from who you email, not what you wrote. Only names, addresses, counts, and dates are kept, for 90 days.</p>';
   }
   async function markSuggestion(email, status){ await api('POST','/crm_suggestion_status',[{ email:email, status:status, handled_by:who() }],'resolution=merge-duplicates,return=minimal'); }
@@ -656,7 +657,9 @@
       if(act==='domain'){ await addPersonTo(sg, m.company.id); await refresh(); toast('Added to '+m.company.name); rescanPast(); return; }
       if(act==='new'){
         var nm=cleanName(sg.name, sg.email).split(/\s+/), dom=sg.domain||'';
+        var lender=looksLikeLender(dom);
         openAddCompany({ name: FREE_MAIL.test(dom)?nm.join(' '):leadCompanyName({ from_email:email, from_name:sg.name }), first:nm[0]||'', last:nm.slice(1).join(' '), email:email,
+          status: lender?'Partner':'', source: lender?'Bank':'', roles: lender?['Lender']:null,
           onSaved:function(){ return markSuggestion(email,'added').then(rescanPast); } });
         return;
       }
@@ -753,19 +756,19 @@
   // ---------- add company ----------
   function openAddCompany(prefill){
     prefill=prefill||{};
-    showModal('<div class="modal-head"><div><h2 class="display">Add a company</h2><p>The company and its first contact. Everything else hangs off this record.</p></div><button class="x" data-close>×</button></div>'+
+    showModal('<div class="modal-head"><div><h2 class="display">Add a company</h2><p>The company and its first person. Banks, CPA firms, and law firms are companies too; set the person\'s role below.</p></div><button class="x" data-close>×</button></div>'+
       '<div class="modal-body"><div id="dupWarn"></div><div class="grid2">'+
       '<div class="fb" style="grid-column:1/-1"><label>Company name *</label><input id="acName" value="'+esc(prefill.name||'')+'"></div>'+
       '<div class="fb"><label>Industry</label><input id="acIndustry"></div><div class="fb"><label>Annual revenue</label><input id="acRevenue" placeholder="e.g. 8.5M"></div>'+
       '<div class="fb"><label>Website</label><input id="acWebsite"></div><div class="fb"><label>City, State</label><input id="acCity" placeholder="Irvine, CA"></div>'+
-      '<div class="fb"><label>Status</label><select id="acStatus">'+opts(STATUSES,'Prospect')+'</select></div><div class="fb"><label>Owner</label><select id="acOwner">'+opts(OWNERS, me(), 'Unassigned')+'</select></div>'+
+      '<div class="fb"><label>Status</label><select id="acStatus">'+opts(STATUSES,prefill.status||'Prospect')+'</select></div><div class="fb"><label>Owner</label><select id="acOwner">'+opts(OWNERS, me(), 'Unassigned')+'</select></div>'+
       '<div class="fb"><label>Source</label><select id="acSource">'+opts(SOURCES, prefill.source||'', 'Choose')+'</select></div><div class="fb"><label>Campaign</label><select id="acCampaign">'+campaignOpts('')+'</select></div>'+
       '<div class="fb" style="grid-column:1/-1"><label>Referred by (COI)</label><select id="acReferrer">'+opts(state.contacts.filter(function(c){ return hasRole(c,'COI'); }).map(function(c){ var co=company(c.company_id); return { v:c.id, l:fullName(c)+(co?' · '+co.name:'') }; }), '', 'Nobody')+'</select></div>'+
       '</div><div class="section-title">First contact</div><div class="grid2">'+
       '<div class="fb"><label>First name</label><input id="acFirst" value="'+esc(prefill.first||'')+'"></div><div class="fb"><label>Last name</label><input id="acLast" value="'+esc(prefill.last||'')+'"></div>'+
       '<div class="fb"><label>Title</label><input id="acTitle"></div><div class="fb"><label>Email</label><input id="acEmail" value="'+esc(prefill.email||'')+'"></div>'+
       '<div class="fb"><label>Phone</label><input id="acPhone"></div><div class="fb"><label>Next touch</label><input type="date" id="acNext" value="'+addDays(1)+'"></div>'+
-      '<div class="fb" style="grid-column:1/-1"><label>Roles</label>'+roleChecks('acRoles',['Owner'])+'</div></div></div>'+
+      '<div class="fb" style="grid-column:1/-1"><label>Roles</label>'+roleChecks('acRoles',prefill.roles||['Owner'])+'</div></div></div>'+
       '<div class="modal-foot"><span class="sub">Duplicates are checked on name, email, and phone.</span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="acSave">Add company</button></div></div>');
     var check=function(){
       var d=findDuplicates(val('acName'), val('acEmail'), val('acPhone'));
