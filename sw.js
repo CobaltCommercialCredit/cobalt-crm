@@ -1,7 +1,7 @@
 // Cobalt CRM service worker.
 // Keeps only the app shell (this page, its icons, its manifest) on the phone so the app opens fast.
 // It never caches data: every request to the database, sign-in, or card scanner goes straight to the network.
-const SHELL = 'cobalt-crm-shell-v2';
+const SHELL = 'cobalt-crm-shell-v3';
 const SHELL_FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
@@ -17,8 +17,9 @@ self.addEventListener('fetch', (e) => {
   // Only the app's own files. Supabase, fonts, and everything else pass through untouched.
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
   // Network first, so every update is live immediately; fall back to the stored copy when offline.
+  // cache:'no-cache' makes the phone ask GitHub for the newest copy every time instead of reusing a recent one.
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(e.request, copy)); }
         return res;

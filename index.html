@@ -1535,7 +1535,18 @@
   });
   $('authPassword').addEventListener('keydown', function(e){ if(e.key==='Enter') $('authSubmit').click(); });
 
-  if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+  // Register the app helper and pick up new versions as soon as they're published: check on every open,
+  // and reload once when a newer helper takes over.
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js', { updateViaCache:'none' }).then(function(reg){
+        reg.update().catch(function(){});
+        document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') reg.update().catch(function(){}); });
+      }).catch(function(){});
+      var hadController=!!navigator.serviceWorker.controller, reloaded=false;
+      navigator.serviceWorker.addEventListener('controllerchange', function(){ if(hadController && !reloaded){ reloaded=true; location.reload(); } });
+    });
+  }
   (async function(){ loadSession(); if(await ensureSession()) showApp(); else showAuth(); })();
 
   window.__crm = { scanCard:function(f){ return scanCard(f); }, handleCard:function(c){ return handleCard(c); }, state:state, queueItems:queueItems, findDuplicates:findDuplicates, parseMoney:parseMoney, normName:normName, openImport:openImport, openCompany:openCompany };
