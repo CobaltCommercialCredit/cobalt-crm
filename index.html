@@ -276,7 +276,8 @@
     companies:[], contacts:[], activities:[], campaigns:[], deals:[], partners:[],
     filters:{ owner:'', status:'', source:'', role:'', search:'' },
     sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' } },
-    openId:null, logType:'Call'
+    openId:null, logType:'Call',
+    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'' }
   };
 
   // ---------- helpers ----------
@@ -459,6 +460,8 @@
       return co[k];
     });
     $('countPill').textContent=rows.length+' compan'+(rows.length===1?'y':'ies');
+    var hidden=state.companies.filter(function(co){ return !CLOSED[co.status]; }).length-rows.length;
+    $('countPill').textContent=rows.length+' compan'+(rows.length===1?'y':'ies')+(hidden>0&&(state.filters.owner||state.filters.status||state.filters.source||state.filters.role||state.filters.search)?' · '+hidden+' hidden by filters':'');
     if(!rows.length) return '<div class="empty"><div class="display">No companies match.</div><p>Add one, import a list, or pull records from the Prospect Engine. Dead and Do Not Contact records are hidden unless you filter for them or search.</p></div>';
     return '<div class="tablewrap"><table><thead><tr>'+th('companies','name','Company')+th('companies','status','Status')+th('companies','contact','Primary contact')+
       th('companies','owner','Owner')+'<th class="hide-sm" data-sort="companies|source">Source</th>'+th('companies','annual_revenue','Revenue')+th('companies','deals','Open deals')+
@@ -567,7 +570,7 @@
   }
 
   function renderFilters(){
-    $('fOwner').innerHTML=opts(OWNERS, state.filters.owner, 'Everyone');
+    $('fOwner').innerHTML=opts(OWNERS.map(function(o){ return { v:o, l:'Owner: '+o }; }), state.filters.owner, 'Owner: Everyone');
     $('fStatus').innerHTML=opts(STATUSES, state.filters.status, 'Open statuses');
     $('fSource').innerHTML=opts(SOURCES, state.filters.source, 'All sources');
     $('fRole').innerHTML=opts(ROLES, state.filters.role, 'All roles');
@@ -1098,8 +1101,8 @@
     }catch(e){ toast('Delete failed: '+e.message); }
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.view=b.getAttribute('data-view'); $('countPill').textContent=''; render(); }); });
-  ['fOwner','fStatus','fSource','fRole'].forEach(function(id){ $(id).addEventListener('change', function(){ var k={fOwner:'owner',fStatus:'status',fSource:'source',fRole:'role'}[id]; state.filters[k]=this.value; render(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
+  ['fOwner','fStatus','fSource','fRole'].forEach(function(id){ $(id).addEventListener('change', function(){ var k={fOwner:'owner',fStatus:'status',fSource:'source',fRole:'role'}[id]; state.filters[k]=this.value; if(k==='owner') state.ownerByView[state.view]=this.value; render(); }); });
   var sh; $('fSearch').addEventListener('input', function(){ var v=this.value; clearTimeout(sh); sh=setTimeout(function(){ state.filters.search=v; render(); }, 150); });
   $('refreshBtn').addEventListener('click', function(){ refresh().then(function(){ toast('Refreshed'); }); });
   $('addCompanyBtn').addEventListener('click', function(){ openAddCompany(); });
@@ -1118,7 +1121,9 @@
   function showAuth(){ $('authGate').style.display='flex'; $('mainApp').style.display='none'; }
   async function showApp(){
     $('authGate').style.display='none'; $('mainApp').style.display='block';
-    if(!state.filters.owner && me()) state.filters.owner=me();
+    // Today defaults to your own queue; Companies, Contacts and Sources default to the whole book.
+    state.ownerByView.today = me();
+    state.filters.owner = state.ownerByView[state.view] || '';
     await refresh();
     var cid=new URLSearchParams(location.search).get('company');
     if(cid && company(cid)) openCompany(cid);
