@@ -953,6 +953,7 @@
   function openContactForm(companyId, contactId){
     var c=contactId?contact(contactId):null, co=company(companyId||(c&&c.company_id));
     showModal('<div class="modal-head"><div><h2 class="display">'+(c?'Edit contact':'Add a contact')+'</h2><p>'+esc(co?co.name:'Individual, no company')+'</p></div><button class="x" data-close>×</button></div><div class="modal-body"><div id="dupWarn"></div><div class="grid2">'+
+      (c?'<div class="fb" style="grid-column:1/-1"><label>Company</label><select id="cfCompany">'+opts([{ v:'__new', l:'+ New company…' }].concat(state.companies.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(x){ return { v:x.id, l:x.name }; })), c.company_id||'', 'No company (individual)')+'</select></div>':'')+
       '<div class="fb"><label>First name</label><input id="cfFirst" value="'+esc(c?c.first_name:'')+'"></div><div class="fb"><label>Last name</label><input id="cfLast" value="'+esc(c?c.last_name:'')+'"></div>'+
       '<div class="fb"><label>Title</label><input id="cfTitle" value="'+esc(c?c.title:'')+'"></div><div class="fb"><label>Email</label><input id="cfEmail" value="'+esc(c?c.email:'')+'"></div>'+
       '<div class="fb"><label>Phone</label><input id="cfPhone" value="'+esc(c?c.phone:'')+'"></div><div class="fb"><label>Mobile</label><input id="cfMobile" value="'+esc(c?c.mobile:'')+'"></div>'+
@@ -967,12 +968,30 @@
       var rec={ first_name:val('cfFirst'), last_name:val('cfLast'), title:val('cfTitle'), email:val('cfEmail'), phone:val('cfPhone'), mobile:val('cfMobile'), linkedin:val('cfLinkedin'),
         next_touch_date:val('cfNext')||null, roles:checked('cfRoles'), is_primary:$('cfPrimary').checked, email_opt_out:$('cfOptOut').checked, do_not_contact:$('cfDnc').checked, notes:val('cfNotes'), dedupe_key:normEmail(val('cfEmail'))||null };
       if(!rec.first_name && !rec.last_name && !rec.email){ toast('Add a name or email'); return; }
+      var moveTo=c&&$('cfCompany')?$('cfCompany').value:null, newCoName='';
+      if(moveTo==='__new'){ newCoName=(prompt('Name of the company '+((rec.first_name+' '+rec.last_name).trim()||'this person')+' works at:')||'').trim(); if(!newCoName){ return; } }
       this.disabled=true;
       try{
+        if(c && moveTo!==null && moveTo!==(c.company_id||'')){
+          var target=moveTo;
+          if(moveTo==='__new'){
+            var dup=state.companies.filter(function(x){ return normName(x.name)===normName(newCoName); })[0];
+            if(dup && confirm(dup.name+' already exists. Move them there instead of creating a duplicate?')) target=dup.id;
+            else { target=uid('co'); await insert('crm_companies',[{ id:target, name:newCoName, status:c.status||'Prospect', owner:c.owner||me(), source:c.source||'', dedupe_key:normName(newCoName), created_by:who() }]); await logSystem(target, 'Company created'); }
+          }
+          var from=c.company_id;
+          rec.company_id=target||null;
+          if(target && !contactsOf(target).length) rec.is_primary=true;
+          if(c.referral_partner_id) await patch('referral_partners', c.referral_partner_id, { crm_company_id:target||null });
+          var who_=fullName(c)||c.email;
+          if(target) await logSystem(target, who_+' moved here'+(from&&company(from)?' from '+company(from).name:''));
+          if(from && company(from)) await logSystem(from, who_+' moved to '+(target?(company(target)?company(target).name:newCoName):'no company'));
+          co=target?{ id:target }:null;
+        }
         if(rec.is_primary && co){ var others=contactsOf(co.id).filter(function(o){ return o.is_primary && (!c||o.id!==c.id); }); for(var i=0;i<others.length;i++) await patch('crm_contacts', others[i].id, { is_primary:false }); }
         if(c){ await patch('crm_contacts', c.id, rec); }
         else { rec.id=uid('ct'); rec.company_id=co?co.id:null; rec.owner=co?co.owner:me(); rec.source=co?co.source:''; rec.status=co?co.status:'Prospect'; rec.created_by=who(); await insert('crm_contacts',[rec]); if(co) await logSystem(co.id, 'Added contact '+((rec.first_name+' '+rec.last_name).trim()||rec.email)); }
-        await refresh(); toast('Saved'); if(co) openCompany(co.id); else closeModal();
+        await refresh(); toast('Saved'); if(co && company(co.id)) openCompany(co.id); else closeModal();
       }catch(e){ this.disabled=false; toast('Save failed: '+e.message); }
     });
     if(c) $('cfDelete').addEventListener('click', async function(){
