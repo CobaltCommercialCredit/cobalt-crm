@@ -75,6 +75,11 @@
   tbody tr:hover{ background:#FAFBFC; }
   td{ padding:9px 12px; vertical-align:middle; }
   .linkish{ font-weight:600; color:var(--ink); cursor:pointer; }
+  .icon-del{ background:transparent; border:none; color:var(--ink-faint); padding:5px; border-radius:6px; display:inline-flex; }
+  .icon-del:hover{ background:var(--red-tint); color:var(--red); }
+  td.sel, th.sel{ width:32px; padding-right:0; }
+  .x-sm{ background:none; border:none; color:var(--ink-faint); font-size:14px; padding:0 4px; margin-left:6px; }
+  .x-sm:hover{ color:var(--red); }
   .linkish:hover{ color:var(--cobalt); text-decoration:underline; }
   .sub{ font-size:11.5px; color:var(--ink-faint); }
   .overdue{ color:var(--red); font-weight:600; }
@@ -242,6 +247,7 @@
     <select id="fRole"></select>
     <input type="text" id="fSearch" placeholder="Search company, person, email, phone…">
     <div class="spacer"></div>
+    <button class="btn btn-sm btn-danger" id="delSelectedBtn" style="display:none"></button>
     <button class="btn btn-sm" id="refreshBtn">Refresh</button>
     <span class="count-pill" id="countPill"></span>
   </div>
@@ -281,7 +287,8 @@
     sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' } },
     openId:null, logType:'Call',
     ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'' },
-    leads:[], syncStatus:null, suggestions:[]
+    leads:[], syncStatus:null, suggestions:[],
+    selected:{ companies:{}, contacts:{} }
   };
 
   // ---------- helpers ----------
@@ -351,6 +358,8 @@
   function insert(table, rows){ return api('POST', '/'+table, rows, 'return=minimal'); }
   function patch(table, id, fields){ return api('PATCH', '/'+table+'?id=eq.'+encodeURIComponent(id), fields, 'return=minimal'); }
   function del(table, id){ return api('DELETE', '/'+table+'?id=eq.'+encodeURIComponent(id), null, 'return=minimal'); }
+  function delMany(table, ids){ return ids.length?api('DELETE', '/'+table+'?id=in.('+ids.map(function(i){ return '"'+String(i).replace(/"/g,'')+'"'; }).map(encodeURIComponent).join(',')+')', null, 'return=minimal'):Promise.resolve(); }
+  var TRASH='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>';
 
   async function loadAll(){
     var since = new Date(Date.now()-120*864e5).toISOString();
@@ -477,20 +486,22 @@
     var hidden=state.companies.filter(function(co){ return !CLOSED[co.status]; }).length-rows.length;
     $('countPill').textContent=rows.length+' compan'+(rows.length===1?'y':'ies')+(hidden>0&&(state.filters.owner||state.filters.status||state.filters.source||state.filters.role||state.filters.search)?' · '+hidden+' hidden by filters':'');
     if(!rows.length) return '<div class="empty"><div class="display">No companies match.</div><p>Add one, import a list, or pull records from the Prospect Engine. Dead and Do Not Contact records are hidden unless you filter for them or search.</p></div>';
-    return '<div class="tablewrap"><table><thead><tr>'+th('companies','name','Company')+th('companies','status','Status')+th('companies','contact','Primary contact')+
+    var allSel=rows.length&&rows.every(function(co){ return state.selected.companies[co.id]; });
+    return '<div class="tablewrap"><table><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('companies','name','Company')+th('companies','status','Status')+th('companies','contact','Primary contact')+
       th('companies','owner','Owner')+'<th class="hide-sm" data-sort="companies|source">Source</th>'+th('companies','annual_revenue','Revenue')+th('companies','deals','Open deals')+
-      th('companies','last_touch_date','Last touch')+th('companies','next_touch_date','Next touch')+'</tr></thead><tbody>'+
+      th('companies','last_touch_date','Last touch')+th('companies','next_touch_date','Next touch')+'<th></th></tr></thead><tbody>'+
       rows.map(function(co){
         var p=primaryOf(co.id), od=dealsOf(co.id).filter(dealOpen);
         var flags=(co.conflict_flag?' <span class="pill flag">Conflict</span>':'')+(co.do_not_contact?' <span class="pill flag">DNC</span>':'');
-        return '<tr><td><span class="linkish" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span>'+flags+(co.industry?'<div class="sub">'+esc(co.industry)+'</div>':'')+'</td>'+
+        return '<tr><td class="sel"><input type="checkbox" data-sel="companies|'+esc(co.id)+'"'+(state.selected.companies[co.id]?' checked':'')+'></td><td><span class="linkish" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span>'+flags+(co.industry?'<div class="sub">'+esc(co.industry)+'</div>':'')+'</td>'+
           '<td>'+statusPill(co.status)+'</td>'+
           '<td>'+(p?esc(fullName(p))+'<div class="sub">'+esc(p.phone||p.email||'')+'</div>':'<span class="sub">None</span>')+'</td>'+
           '<td>'+esc(co.owner)+'</td><td class="hide-sm">'+esc(co.source)+(co.campaign_id&&campaign(co.campaign_id)?'<div class="sub">'+esc(campaign(co.campaign_id).name)+'</div>':'')+'</td>'+
           '<td>'+esc(fmtMoney(co.annual_revenue))+'</td>'+
           '<td>'+(od.length?od.map(function(d){ return '<span class="pill role">'+esc(d.pipe)+' · '+esc(d.stage)+'</span>'; }).join(' '):'')+'</td>'+
           '<td>'+esc(fmtDate(co.last_touch_date))+'</td>'+
-          '<td><input type="date" class="touch-date '+touchClass(co.next_touch_date)+'" data-touch="'+esc(co.id)+'" value="'+esc(co.next_touch_date||'')+'"></td></tr>';
+          '<td><input type="date" class="touch-date '+touchClass(co.next_touch_date)+'" data-touch="'+esc(co.id)+'" value="'+esc(co.next_touch_date||'')+'"></td>'+
+          '<td><button class="icon-del" data-delco="'+esc(co.id)+'" title="Delete company">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div>';
   }
 
@@ -509,18 +520,20 @@
     rows=sortRows(rows, state.sort.contacts, function(c,k){ if(k==='name') return fullName(c); if(k==='company'){ var co=company(c.company_id); return co?co.name:''; } return c[k]; });
     $('countPill').textContent=rows.length+' contact'+(rows.length===1?'':'s');
     if(!rows.length) return '<div class="empty"><div class="display">No contacts match.</div><p>Contacts live under a company. Open a company to add people, or filter by role to see your COIs.</p></div>';
-    return '<div class="tablewrap"><table><thead><tr>'+th('contacts','name','Name')+th('contacts','company','Company')+'<th>Roles</th>'+th('contacts','email','Email')+th('contacts','phone','Phone')+
-      th('contacts','last_touch_date','Last touch')+th('contacts','next_touch_date','Next touch')+'<th>COI</th></tr></thead><tbody>'+
+    var allSelC=rows.length&&rows.every(function(c){ return state.selected.contacts[c.id]; });
+    return '<div class="tablewrap"><table><thead><tr><th class="sel"><input type="checkbox" data-selall="contacts"'+(allSelC?' checked':'')+' title="Select all shown"></th>'+th('contacts','name','Name')+th('contacts','company','Company')+'<th>Roles</th>'+th('contacts','email','Email')+th('contacts','phone','Phone')+
+      th('contacts','last_touch_date','Last touch')+th('contacts','next_touch_date','Next touch')+'<th>COI</th><th></th></tr></thead><tbody>'+
       rows.map(function(c){
         var co=company(c.company_id);
-        return '<tr><td>'+(co?'<span class="linkish" data-open="'+esc(co.id)+'">'+esc(fullName(c)||'(no name)')+'</span>':'<span class="linkish" data-opencontact="'+esc(c.id)+'">'+esc(fullName(c)||'(no name)')+'</span>')+(c.title?'<div class="sub">'+esc(c.title)+'</div>':'')+(c.do_not_contact||c.email_opt_out?' <span class="pill flag">'+(c.do_not_contact?'DNC':'Opted out')+'</span>':'')+'</td>'+
+        return '<tr><td class="sel"><input type="checkbox" data-sel="contacts|'+esc(c.id)+'"'+(state.selected.contacts[c.id]?' checked':'')+'></td><td>'+(co?'<span class="linkish" data-open="'+esc(co.id)+'">'+esc(fullName(c)||'(no name)')+'</span>':'<span class="linkish" data-opencontact="'+esc(c.id)+'">'+esc(fullName(c)||'(no name)')+'</span>')+(c.title?'<div class="sub">'+esc(c.title)+'</div>':'')+(c.do_not_contact||c.email_opt_out?' <span class="pill flag">'+(c.do_not_contact?'DNC':'Opted out')+'</span>':'')+'</td>'+
           '<td>'+(co?esc(co.name):'<span class="sub">Individual</span>')+'</td>'+
           '<td>'+(c.roles||[]).map(function(r){ return '<span class="pill role">'+esc(r)+'</span>'; }).join(' ')+'</td>'+
           '<td>'+(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'')+'</td>'+
           '<td>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'')+'</td>'+
           '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
           '<td><input type="date" class="touch-date '+touchClass(c.next_touch_date)+'" data-ctouch="'+esc(c.id)+'" value="'+esc(c.next_touch_date||'')+'"></td>'+
-          '<td>'+(c.referral_partner_id?'<a class="btn btn-sm" href="'+TOOL+'cobalt-referral-partners/" target="_blank" rel="noopener">In tracker</a>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td></tr>';
+          '<td>'+(c.referral_partner_id?'<a class="btn btn-sm" href="'+TOOL+'cobalt-referral-partners/" target="_blank" rel="noopener">In tracker</a>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td>'+
+          '<td><button class="icon-del" data-delct="'+esc(c.id)+'" title="Delete contact">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div>';
   }
 
@@ -732,6 +745,7 @@
     else if(v==='inbox') $('view').innerHTML=renderInbox();
     else if(v==='suggested') $('view').innerHTML=renderSuggested();
     else $('view').innerHTML=renderCampaigns();
+    syncDelButton();
   }
 
   // ---------- modal plumbing ----------
@@ -850,10 +864,10 @@
       '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-primary" id="lgSave"'+(blocked(co)?' disabled title="Blocked by flag"':'')+'>Log it</button></div></div>';
 
     right+='<div class="section-title">Open tasks ('+tasks.length+')</div>'+
-      (tasks.length?tasks.map(function(a){ return '<div class="card"><div class="row"><div>'+esc(a.subject||a.body)+'<div class="meta '+touchClass(a.due_date)+'">Due '+esc(fmtDate(a.due_date))+' · '+esc(a.owner||'')+'</div></div><button class="btn btn-sm" data-taskdone="'+esc(a.id)+'">Done</button></div></div>'; }).join(''):'<div class="sub">None.</div>');
+      (tasks.length?tasks.map(function(a){ return '<div class="card"><div class="row"><div>'+esc(a.subject||a.body)+'<div class="meta '+touchClass(a.due_date)+'">Due '+esc(fmtDate(a.due_date))+' · '+esc(a.owner||'')+'</div></div><span><button class="btn btn-sm" data-taskdone="'+esc(a.id)+'">Done</button><button class="x-sm" data-delact="'+esc(a.id)+'" title="Delete task">×</button></span></div></div>'; }).join(''):'<div class="sub">None.</div>');
     right+='<div class="section-title">Activity</div><div class="timeline">'+
       (history_.length?history_.map(function(a){ var c=a.contact_id?contact(a.contact_id):null;
-        return '<div class="tl'+(a.type==='Task'?' task':'')+'"><div class="meta"><b>'+esc(a.type)+(a.direction==='in'?' in':a.direction==='out'?' out':'')+'</b>'+(a.source==='outlook'?' · Outlook':'')+''+(a.outcome?' · '+esc(a.outcome):'')+(c?' · '+esc(fullName(c)):'')+' · '+esc(fmtWhen(a.created_at))+' · '+esc((a.created_by||'').split('@')[0])+'</div><div class="body">'+esc(a.subject?a.subject+(a.body?'\n'+a.body:''):a.body)+'</div></div>'; }).join('')
+        return '<div class="tl'+(a.type==='Task'?' task':'')+'"><div class="meta"><b>'+esc(a.type)+(a.direction==='in'?' in':a.direction==='out'?' out':'')+'</b>'+(a.source==='outlook'?' · Outlook':'')+''+(a.outcome?' · '+esc(a.outcome):'')+(c?' · '+esc(fullName(c)):'')+' · '+esc(fmtWhen(a.created_at))+' · '+esc((a.created_by||'').split('@')[0])+((a.source!=='outlook'&&a.type!=='System')?'<button class="x-sm" data-delact="'+esc(a.id)+'" title="Delete this entry">×</button>':'')+'</div><div class="body">'+esc(a.subject?a.subject+(a.body?'\n'+a.body:''):a.body)+'</div></div>'; }).join('')
         :'<div class="sub">No activity yet.</div>')+'</div>';
 
     showModal('<div class="modal-head"><div><h2 class="display">'+esc(co.name)+'</h2><p>'+statusPill(co.status)+' '+esc([co.industry, co.city&&co.state?co.city+', '+co.state:(co.city||co.state), co.source?'Source: '+co.source:''].filter(Boolean).join(' · '))+
@@ -1069,7 +1083,12 @@
       '<div class="fb"><label>Channel</label><select id="cpChannel">'+opts(CHANNELS, c?c.channel:'')+'</select></div><div class="fb"><label>Started</label><input type="date" id="cpStart" value="'+esc(c&&c.started_on?c.started_on:today())+'"></div>'+
       '<div class="fb"><label>Cost</label><input id="cpCost" value="'+esc(c&&c.cost!=null?c.cost:'')+'"></div><div class="checks" style="align-self:end"><label><input type="checkbox" id="cpActive"'+(!c||c.active?' checked':'')+'>Active</label></div>'+
       '<div class="fb" style="grid-column:1/-1"><label>Notes</label><textarea id="cpNotes">'+esc(c?c.notes:'')+'</textarea></div></div></div>'+
-      '<div class="modal-foot"><span></span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="cpSave">Save</button></div></div>');
+      '<div class="modal-foot"><span>'+(c?'<button class="btn btn-sm btn-danger" id="cpDelete">Delete campaign</button>':'')+'</span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="cpSave">Save</button></div></div>');
+    if(c) $('cpDelete').addEventListener('click', async function(){
+      var n=state.companies.filter(function(co){ return co.campaign_id===c.id; }).length;
+      if(!confirm('Delete campaign "'+c.name+'"?'+(n?' '+n+' compan'+(n===1?'y keeps':'ies keep')+' their records but lose the campaign tag.':''))) return;
+      try{ await del('crm_campaigns', c.id); closeModal(); await refresh(); toast('Campaign deleted'); }catch(e){ toast('Delete failed: '+e.message); }
+    });
     $('cpSave').addEventListener('click', async function(){
       var rec={ name:val('cpName'), channel:val('cpChannel'), started_on:val('cpStart')||null, cost:parseMoney(val('cpCost')), active:$('cpActive').checked, notes:val('cpNotes') };
       if(!rec.name){ toast('Name it'); return; }
@@ -1187,7 +1206,7 @@
   async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
 
   document.addEventListener('click', function(e){
-    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],#addCampaignBtn');
+    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],[data-delct],[data-delact],#addCampaignBtn');
     if(!t) return;
     if(t.hasAttribute('data-close')){ closeModal(); return; }
     if(t.hasAttribute('data-open')){ openCompany(t.getAttribute('data-open'), { focusLog:t.hasAttribute('data-focuslog') }); return; }
@@ -1200,6 +1219,8 @@
     if(t.hasAttribute('data-opendeal')){ openDealForm(t.getAttribute('data-opendeal')); return; }
     if(t.hasAttribute('data-nurture')){ openNurture(t.getAttribute('data-nurture')); return; }
     if(t.hasAttribute('data-delco')){ deleteCompany(t.getAttribute('data-delco')); return; }
+    if(t.hasAttribute('data-delct')){ deleteContacts([t.getAttribute('data-delct')]); return; }
+    if(t.hasAttribute('data-delact')){ deleteActivity(t.getAttribute('data-delact')); return; }
     if(t.hasAttribute('data-taskdone')){ completeTask(t.getAttribute('data-taskdone')); return; }
     if(t.hasAttribute('data-ltype')){ state.logType=t.getAttribute('data-ltype'); Array.prototype.forEach.call(document.querySelectorAll('.typebtn'), function(b){ b.classList.toggle('on', b===t); }); syncLogType(); return; }
     if(t.hasAttribute('data-qd')){ $('lgNext').value=addDays(Number(t.getAttribute('data-qd'))); return; }
@@ -1213,6 +1234,8 @@
   });
   document.addEventListener('change', function(e){
     var t=e.target;
+    if(t.hasAttribute('data-sel')){ var ps=t.getAttribute('data-sel').split('|'); state.selected[ps[0]][ps.slice(1).join('|')]=t.checked; syncDelButton(); return; }
+    if(t.hasAttribute('data-selall')){ var v=t.getAttribute('data-selall'); Array.prototype.forEach.call(document.querySelectorAll('[data-sel^="'+v+'|"]'), function(cb){ cb.checked=t.checked; state.selected[v][cb.getAttribute('data-sel').split('|').slice(1).join('|')]=t.checked; }); syncDelButton(); return; }
     if(t.hasAttribute('data-touch')){ var co=company(t.getAttribute('data-touch')); if(!co) return; co.next_touch_date=t.value||null; patch('crm_companies', co.id, { next_touch_date:co.next_touch_date }).then(function(){ toast('Next touch set'); render(); }).catch(function(err){ toast('Save failed: '+err.message); }); return; }
     if(t.hasAttribute('data-ctouch')){ var c=contact(t.getAttribute('data-ctouch')); if(!c) return; c.next_touch_date=t.value||null; patch('crm_contacts', c.id, { next_touch_date:c.next_touch_date }).then(function(){ toast('Next touch set'); render(); }).catch(function(err){ toast('Save failed: '+err.message); }); return; }
     if(t.hasAttribute('data-f') && state.openId){ saveCompanyField(state.openId, t.getAttribute('data-f'), t); return; }
@@ -1236,22 +1259,60 @@
       await refresh(); toast('Task done'); if(!fromQueue && state.openId) openCompany(state.openId);
     }catch(e){ toast('Failed: '+e.message); }
   }
-  async function deleteCompany(id){
-    var co=company(id); if(!co) return;
-    var deals=dealsOf(id);
-    if(deals.length){ toast('This company has '+deals.length+' linked deal(s). Move it to Dead or Nurture instead of deleting.'); return; }
-    if(!confirm('Permanently delete '+co.name+', its contacts, and its activity history? Consider Dead or Do Not Contact instead, which keeps the record.')) return;
+  // Deletes are permanent. Companies with linked pipeline deals are skipped so the Pipeline never points at nothing.
+  async function deleteCompanies(ids){
+    var blockedIds=ids.filter(function(id){ return dealsOf(id).length; });
+    var ok=ids.filter(function(id){ return !dealsOf(id).length && company(id); });
+    if(!ok.length){ toast(blockedIds.length===1?'This company has linked deals. Delete or close them in the Pipeline first, or set it to Dead.':'All selected companies have linked deals. Delete or close those in the Pipeline first.'); return false; }
+    var people=0, cois=0; ok.forEach(function(id){ contactsOf(id).forEach(function(c){ people++; if(c.referral_partner_id) cois++; }); });
+    var label=ok.length===1?company(ok[0]).name:ok.length+' companies';
+    var msg='Permanently delete '+label+(people?', '+people+' '+(people===1?'person':'people'):'')+', and all activity history?'+
+      (cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' in the Referral Partner Tracker, unlinked.':'')+
+      (blockedIds.length?'\n\nSkipping '+blockedIds.length+' with linked deals.':'')+'\n\nFor real relationships, Dead or Do Not Contact keeps the history.';
+    if(!confirm(msg)) return false;
     try{
-      var cts=contactsOf(id);
-      for(var i=0;i<cts.length;i++){ if(cts[i].referral_partner_id){ toast(fullName(cts[i])+' is a COI in the tracker. Detach or keep the company.'); return; } }
-      for(var j=0;j<cts.length;j++) await del('crm_contacts', cts[j].id);
-      await del('crm_companies', id); closeModal(); await refresh(); toast('Deleted');
-    }catch(e){ toast('Delete failed: '+e.message); }
+      var ctIds=[]; ok.forEach(function(id){ contactsOf(id).forEach(function(c){ ctIds.push(c.id); }); });
+      for(var i=0;i<ctIds.length;i+=100) await delMany('crm_contacts', ctIds.slice(i,i+100));
+      for(var j=0;j<ok.length;j+=100) await delMany('crm_companies', ok.slice(j,j+100));
+      ok.forEach(function(id){ delete state.selected.companies[id]; });
+      if(state.openId && ok.indexOf(state.openId)>=0) closeModal();
+      await refresh(); toast('Deleted '+label+(blockedIds.length?' · skipped '+blockedIds.length+' with deals':''));
+      return true;
+    }catch(e){ toast('Delete failed: '+e.message); return false; }
+  }
+  function deleteCompany(id){ return deleteCompanies([id]); }
+  async function deleteContacts(ids){
+    ids=ids.filter(function(id){ return contact(id); });
+    if(!ids.length) return false;
+    var cois=ids.filter(function(id){ return contact(id).referral_partner_id; }).length;
+    var label=ids.length===1?(fullName(contact(ids[0]))||'this contact'):ids.length+' contacts';
+    if(!confirm('Permanently delete '+label+'? Their logged activity stays on the company.'+(cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' in the Referral Partner Tracker, unlinked.':''))) return false;
+    try{
+      for(var i=0;i<ids.length;i+=100) await delMany('crm_contacts', ids.slice(i,i+100));
+      ids.forEach(function(id){ delete state.selected.contacts[id]; });
+      await refresh(); toast('Deleted '+label); if(state.openId) openCompany(state.openId);
+      return true;
+    }catch(e){ toast('Delete failed: '+e.message); return false; }
+  }
+  async function deleteActivity(id){
+    var a=state.activities.filter(function(x){ return x.id===id; })[0]; if(!a) return;
+    if(!confirm('Delete this '+(a.type==='Task'?'task':'entry')+'?')) return;
+    try{ await del('crm_activities', id); await refresh(); toast('Deleted'); if(state.openId) openCompany(state.openId); }catch(e){ toast('Delete failed: '+e.message); }
+  }
+  function syncDelButton(){
+    var v=state.view, b=$('delSelectedBtn'); if(!b) return;
+    var set=(v==='companies'||v==='contacts')?state.selected[v]:null;
+    var n=set?Object.keys(set).filter(function(k){ return set[k]; }).length:0;
+    b.style.display=n?'':'none'; b.textContent='Delete '+n+' selected';
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
   ['fOwner','fStatus','fSource','fRole'].forEach(function(id){ $(id).addEventListener('change', function(){ var k={fOwner:'owner',fStatus:'status',fSource:'source',fRole:'role'}[id]; state.filters[k]=this.value; if(k==='owner') state.ownerByView[state.view]=this.value; render(); }); });
   var sh; $('fSearch').addEventListener('input', function(){ var v=this.value; clearTimeout(sh); sh=setTimeout(function(){ state.filters.search=v; render(); }, 150); });
+  $('delSelectedBtn').addEventListener('click', function(){
+    var v=state.view, set=state.selected[v]; var ids=Object.keys(set).filter(function(k){ return set[k]; });
+    if(v==='companies') deleteCompanies(ids); else if(v==='contacts') deleteContacts(ids);
+  });
   $('refreshBtn').addEventListener('click', function(){ refresh().then(function(){ toast('Refreshed'); }); });
   $('addCompanyBtn').addEventListener('click', function(){ openAddCompany(); });
   $('pullProspectBtn').addEventListener('click', openProspectPull);
