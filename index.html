@@ -309,6 +309,13 @@
   function dealsOf(cid){ return state.deals.filter(function(d){ return d.crm_company_id===cid; }); }
   function campaign(id){ for(var i=0;i<state.campaigns.length;i++) if(state.campaigns[i].id===id) return state.campaigns[i]; return null; }
   function hasRole(c, r){ return (c.roles||[]).indexOf(r)>=0; }
+  var COI_ROLES = ['COI','CPA','Attorney','Wealth advisor','Lender'];
+  function isReferralSource(c){ return (c.roles||[]).some(function(r){ return COI_ROLES.indexOf(r)>=0; }); }
+  function coiControl(c){
+    if(c.referral_partner_id) return '<span class="pill s-Partner" title="In the Referral Partner Tracker">COI in tracker</span>';
+    if(isReferralSource(c)) return '<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'" title="Add to the Referral Partner Tracker">Make COI</button>';
+    return '';
+  }
   function blocked(co){ return co && (co.do_not_contact || co.conflict_flag || co.status==='Do Not Contact'); }
 
   // ---------- auth (shared cobalt_session SSO) ----------
@@ -506,7 +513,7 @@
           '<td>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'')+'</td>'+
           '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
           '<td><input type="date" class="touch-date '+touchClass(c.next_touch_date)+'" data-ctouch="'+esc(c.id)+'" value="'+esc(c.next_touch_date||'')+'"></td>'+
-          '<td>'+(c.referral_partner_id?'<a class="btn btn-sm" href="'+TOOL+'cobalt-referral-partners/" target="_blank" rel="noopener">In tracker</a>':'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>')+'</td></tr>';
+          '<td>'+(c.referral_partner_id?'<a class="btn btn-sm" href="'+TOOL+'cobalt-referral-partners/" target="_blank" rel="noopener">In tracker</a>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td></tr>';
       }).join('')+'</tbody></table></div>';
   }
 
@@ -681,12 +688,12 @@
       '<label><input type="checkbox" data-f="conflict_flag"'+(co.conflict_flag?' checked':'')+'>Conflict flag (e.g. Redmount relationship)</label></div>'+
       (co.conflict_flag?'<div class="fb" style="margin-top:8px"><label>Conflict note</label><input data-f="conflict_note" value="'+esc(co.conflict_note)+'"></div>':'');
 
-    left+='<div class="section-title">People ('+people.length+') <button class="btn btn-sm" data-addcontact="'+esc(id)+'">+ Contact</button></div>'+
+    left+='<div class="section-title">People at '+esc(co.name)+' ('+people.length+') <button class="btn btn-sm" data-addcontact="'+esc(id)+'">+ Person</button></div>'+
       (people.length?people.map(function(c){
         return '<div class="card"><div class="row"><div><b class="linkish" data-editcontact="'+esc(c.id)+'">'+esc(fullName(c)||'(no name)')+'</b>'+(c.is_primary?' <span class="pill">Primary</span>':'')+(c.title?' <span class="sub">'+esc(c.title)+'</span>':'')+
           '<div class="meta">'+[c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'', c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'', c.mobile?esc(c.mobile)+' (m)':''].filter(Boolean).join(' · ')+'</div>'+
           '<div style="margin-top:4px">'+(c.roles||[]).map(function(r){ return '<span class="pill role">'+esc(r)+'</span>'; }).join(' ')+(c.email_opt_out?' <span class="pill flag">Opted out</span>':'')+'</div></div>'+
-          '<div>'+(c.referral_partner_id?'<span class="pill s-Partner">COI in tracker</span>':'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>')+'</div></div></div>';
+          '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+(c.phone?'<a class="btn btn-sm" href="tel:'+esc(c.phone)+'">Call</a>':'')+(c.email?'<a class="btn btn-sm" href="mailto:'+esc(c.email)+'">Email</a>':'')+'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'">Edit</button>'+coiControl(c)+'</div></div></div>';
       }).join(''):'<div class="sub">No people yet.</div>');
 
     left+='<div class="section-title">Deals ('+deals.length+') <span><button class="btn btn-sm btn-primary" data-opendeal="'+esc(id)+'"'+(blocked(co)?' disabled title="Blocked by flag"':'')+'>Open deal</button></span></div>'+
