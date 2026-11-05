@@ -81,6 +81,7 @@
   tbody tr:hover{ background:#FAFBFC; }
   td{ padding:9px 12px; vertical-align:middle; }
   .linkish{ font-weight:600; color:var(--ink); cursor:pointer; }
+  select.compact-select{ font-size:12px; padding:5px 6px; border:1px solid var(--line); border-radius:6px; font-family:inherit; background:var(--surface); color:var(--ink); }
   .icon-del{ background:transparent; border:none; color:var(--ink-faint); padding:5px; border-radius:6px; display:inline-flex; }
   .icon-del:hover{ background:var(--red-tint); color:var(--red); }
   td.sel, th.sel{ width:32px; padding-right:0; }
@@ -290,7 +291,7 @@
       <div class="brand-mark"><svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://www.w3.org/2000/svg" viewBox="140 270 745 225"><polygon fill="#1a4b8c" points="242.74669 285.5804 256.15816 374.10946 327.42649 334.47028"/><polygon fill="#4a7fc4" points="329.32111 430.70878 329.32111 335.56417 258.07371 383.13647"/><polygon fill="#002347" points="154.63524 335.56417 154.63524 430.70878 225.88271 383.13647"/><polygon fill="#0047ab" points="227.7982 374.10946 241.20966 285.5804 156.52986 334.47028"/><polygon fill="#0047ab" points="227.7982 392.16349 155.13954 432.57591 241.4713 482.4196"/><polygon fill="#1a4b8c" points="256.15816 392.16349 242.48506 482.4196 328.81682 432.57591"/><g style="fill:#002347"><path d="m 441.8149,347.11795 -8.78946,10.01303 c -4.78384,-5.34015 -11.68195,-9.34577 -20.36045,-9.34577 -16.4658,0 -27.48048,12.34973 -27.48048,29.59476 0,17.02261 11.01469,29.48329 27.48048,29.48329 9.01238,0 16.02146,-4.11658 20.8053,-9.79061 l 8.6785,10.23596 c -7.78831,8.56704 -17.69038,12.34973 -29.4838,12.34973 -24.2541,0 -41.6106,-18.13522 -41.6106,-42.27837 0,-24.36557 17.35649,-42.38933 41.6106,-42.38933 12.46119,0 21.47307,4.22753 29.14991,12.1273 z"/><path d="m 542.05568,377.37998 c 0,24.47703 -17.80134,42.27837 -41.6111,42.27837 -23.92022,0 -41.6106,-17.80134 -41.6106,-42.27837 0,-24.36557 17.69038,-42.38933 41.6106,-42.38933 23.80976,0 41.6111,18.02376 41.6111,42.38933 z m -69.09159,0 c 0,17.24503 11.34807,29.48329 27.48048,29.48329 16.02146,0 27.48099,-12.23826 27.48099,-29.48329 0,-17.24503 -11.45953,-29.59476 -27.48099,-29.59476 -16.13242,0 -27.48048,12.34973 -27.48048,29.59476 z"/><path d="m 623.38149,358.2436 c 0,8.56704 -4.56142,14.01865 -8.90042,16.4663 8.78946,2.67007 15.57611,8.45557 15.57611,20.13753 0,14.90884 -11.571,23.36441 -26.92468,23.36441 h -35.60268 v -81.77469 h 30.15106 c 16.4663,0 25.7006,8.34411 25.7006,21.80645 z m -42.05544,-9.12334 v 21.58403 h 15.35369 c 7.89926,0 12.68361,-4.44996 12.68361,-10.79176 0,-6.78665 -4.67288,-10.79227 -13.46234,-10.79227 z m 0,33.26648 v 23.14149 h 20.13753 c 8.90092,0 14.57496,-4.00511 14.57496,-11.57049 0,-7.45442 -5.34015,-11.571 -15.46464,-11.571 h -19.24784 z"/><path d="m 761.5581,405.86212 h 37.04867 v 12.34973 h -50.95636 v -81.77469 h 13.90769 v 69.42497 z"/><path d="m 869.36476,348.78688 h -27.70291 v 69.42497 h -13.90769 v -69.42497 h -27.70291 v -12.34973 h 69.3135 v 12.34973 z"/></g><polygon fill="#002347" points="686.35066 334.99065 685.90582 334.99065 647.41014 418.21184 662.54141 418.21184 686.12824 363.58375 709.71508 418.21184 724.84584 418.21184"/><polygon fill="#0047ab" points="675.65591 418.21184 686.12824 393.95749 696.60057 418.21184"/><g style="fill:#1a4b8c"><path d="m 382.62256,442.73596 c 0.86963,-0.86963 1.89795,-1.54346 3.0874,-2.02197 1.18799,-0.47803 2.49268,-0.71729 3.91309,-0.71729 1.50684,0 2.90576,0.3042 4.19629,0.91309 1.28955,0.60889 2.44189,1.50781 3.45654,2.6958 l 4.56592,-4.17432 c -1.4502,-1.76758 -3.24707,-3.10889 -5.39209,-4.02197 -2.14551,-0.91309 -4.53711,-1.36963 -7.17432,-1.36963 -2.34814,0 -4.52979,0.38477 -6.54443,1.15234 -2.01514,0.76855 -3.76855,1.86279 -5.26123,3.28271 -1.49316,1.4209 -2.65234,3.0874 -3.47852,5.00049 -0.82617,1.91357 -1.23926,4.01562 -1.23926,6.30518 0,2.29004 0.41309,4.3916 1.23926,6.30469 0.82617,1.91357 1.97852,3.58057 3.45703,5.00049 1.47803,1.4209 3.22412,2.51514 5.23926,3.2832 2.01465,0.76758 4.19629,1.15234 6.54443,1.15234 2.6665,0 5.07227,-0.46436 7.21777,-1.3916 2.14502,-0.92725 3.94189,-2.27539 5.39209,-4.04395 l -4.56592,-4.17432 c -1.01465,1.18896 -2.16699,2.09473 -3.45654,2.71777 -1.29053,0.62354 -2.68945,0.93506 -4.19629,0.93506 -1.42041,0 -2.7251,-0.23926 -3.91309,-0.71777 -1.18945,-0.47803 -2.21777,-1.15234 -3.0874,-2.02197 -0.86963,-0.86963 -1.54395,-1.89795 -2.02197,-3.08691 -0.47852,-1.18848 -0.71729,-2.50732 -0.71729,-3.95703 0,-1.44922 0.23877,-2.76807 0.71729,-3.95703 0.47803,-1.18848 1.15234,-2.21777 2.02197,-3.0874 z"/><path d="m 431.45312,438.47473 c -1.50732,-1.41992 -3.26855,-2.51416 -5.2832,-3.28271 -2.01514,-0.76758 -4.2251,-1.15234 -6.63086,-1.15234 -2.40674,0 -4.6167,0.39111 -6.63086,1.17383 -2.01562,0.78271 -3.77637,1.88477 -5.2832,3.30469 -1.50781,1.4209 -2.67432,3.08057 -3.50049,4.979 -0.82617,1.89893 -1.23926,3.99365 -1.23926,6.2832 0,2.26123 0.41309,4.34814 1.23926,6.26123 0.82617,1.91357 1.99268,3.58057 3.50049,5.00049 1.50684,1.4209 3.27539,2.52197 5.30469,3.30469 2.02881,0.78271 4.24658,1.17432 6.65283,1.17432 2.37646,0 4.57227,-0.38477 6.5874,-1.15234 2.01465,-0.76807 3.77588,-1.8623 5.2832,-3.2832 1.50684,-1.41992 2.67432,-3.09375 3.50049,-5.02197 0.82617,-1.92773 1.23926,-4.02197 1.23926,-6.2832 0,-2.28955 -0.41309,-4.3916 -1.23926,-6.30518 -0.82617,-1.91309 -1.99365,-3.57959 -3.50049,-5.00049 z m -3.10888,15.24072 c -0.47852,1.17383 -1.15234,2.20312 -2.02197,3.0874 -0.86963,0.88428 -1.87744,1.56543 -3.02197,2.04346 -1.14551,0.47852 -2.39893,0.71777 -3.76123,0.71777 -1.36279,0 -2.62402,-0.23926 -3.7832,-0.71777 -1.15967,-0.47803 -2.16699,-1.15918 -3.02197,-2.04346 -0.85547,-0.88428 -1.52197,-1.91357 -2,-3.0874 -0.47852,-1.17383 -0.71729,-2.48535 -0.71729,-3.93506 0,-1.44922 0.23877,-2.76123 0.71729,-3.93506 0.47803,-1.17432 1.14453,-2.20264 2,-3.0874 0.85498,-0.88379 1.8623,-1.56543 3.02197,-2.04395 1.15918,-0.47803 2.42041,-0.71729 3.7832,-0.71729 1.3623,0 2.61572,0.23926 3.76123,0.71729 1.14453,0.47852 2.15234,1.16016 3.02197,2.04395 0.86963,0.88477 1.54346,1.91309 2.02197,3.0874 0.47852,1.17383 0.71729,2.48584 0.71729,3.93506 0,1.44971 -0.23877,2.76123 -0.71729,3.93506 z"/><path d="m 441.49756,434.56165 v 30.4375 h 6.56592 v -17.95252 l 8.95752,14.69129 h 3.13086 l 8.96624,-14.89313 0.0777,18.15436 h 6.56592 v -30.4375 h -5.87012 l -11.16882,18.89502 -11.39856,-18.89502 z"/><path d="m 483.02295,434.56165 v 30.4375 h 6.56592 v -17.95252 l 8.95752,14.69129 h 3.13086 l 8.96624,-14.89313 0.0777,18.15436 h 6.56592 v -30.4375 h -5.87012 l -11.16882,18.89502 -11.39856,-18.89502 z"/><path d="M 545.68164,446.77991 H 531.5498 v -6.56592 h 16.00147 v -5.65234 h -23.00244 v 30.4375 h 23.56738 v -5.65284 H 531.5498 v -7.04394 h 14.13184 z"/><path d="m 573.94482,455.19397 c 1.97119,-0.85498 3.49316,-2.10156 4.56592,-3.73975 1.07227,-1.63721 1.60889,-3.60156 1.60889,-5.8916 0,-3.42041 -1.17432,-6.10938 -3.52197,-8.06592 -2.34814,-1.95703 -5.63867,-2.93506 -9.87061,-2.93506 h -13.00146 v 30.4375 h 7.08789 v -8.52246 h 6.0874 c 0.10492,0 0.20007,-0.0111 0.30389,-0.0123 l 5.91388,8.53479 h 7.56641 l -6.78369,-9.78943 c 0.0138,-0.006 0.0297,-0.01 0.0435,-0.0157 z m -2.56543,-13.52295 c 1.10156,0.91309 1.65234,2.21045 1.65234,3.8916 0,1.68164 -0.55078,2.98584 -1.65234,3.91309 -1.10205,0.92822 -2.7251,1.3916 -4.86963,1.3916 h -5.69629 V 440.3009 h 5.69629 c 2.14453,0 3.76758,0.45703 4.86963,1.37012 z"/><path d="m 593.64258,442.73596 c 0.86963,-0.86963 1.89795,-1.54346 3.0874,-2.02197 1.18799,-0.47803 2.49268,-0.71729 3.91309,-0.71729 1.50684,0 2.90576,0.3042 4.19629,0.91309 1.28955,0.60889 2.44189,1.50781 3.45654,2.6958 l 4.56592,-4.17432 c -1.4502,-1.76758 -3.24707,-3.10889 -5.39209,-4.02197 -2.14551,-0.91309 -4.53711,-1.36963 -7.17432,-1.36963 -2.34814,0 -4.52979,0.38477 -6.54443,1.15234 -2.01514,0.76855 -3.76855,1.86279 -5.26123,3.28271 -1.49316,1.4209 -2.65234,3.0874 -3.47852,5.00049 -0.82617,1.91357 -1.23926,4.01562 -1.23926,6.30518 0,2.29004 0.41309,4.3916 1.23926,6.30469 0.82617,1.91357 1.97852,3.58057 3.45703,5.00049 1.47803,1.4209 3.22412,2.51514 5.23926,3.2832 2.01465,0.76758 4.19629,1.15234 6.54443,1.15234 2.6665,0 5.07227,-0.46436 7.21777,-1.3916 2.14502,-0.92725 3.94189,-2.27539 5.39209,-4.04395 l -4.56592,-4.17432 c -1.01465,1.18896 -2.16699,2.09473 -3.45654,2.71777 -1.29053,0.62354 -2.68945,0.93506 -4.19629,0.93506 -1.42041,0 -2.7251,-0.23926 -3.91309,-0.71777 -1.18945,-0.47803 -2.21777,-1.15234 -3.0874,-2.02197 -0.86963,-0.86963 -1.54395,-1.89795 -2.02197,-3.08691 -0.47852,-1.18848 -0.71729,-2.50732 -0.71729,-3.95703 0,-1.44922 0.23877,-2.76807 0.71729,-3.95703 0.47803,-1.18848 1.15234,-2.21777 2.02197,-3.0874 z"/><path d="m 617.1665,434.56165 h 7.08789 v 30.4375 h -7.08789 z"/><path d="m 640.95166,434.56165 -13.52295,30.4375 h 7.21777 l 2.71252,-6.52246 h 14.09851 l 2.7124,6.52246 h 7.39209 l -13.65332,-30.4375 h -6.95703 z m -1.36853,18.56689 4.82526,-11.60291 4.82513,11.60291 z"/><path d="m 664.73633,464.99915 h 22.26318 v -5.73975 h -15.17529 v -24.69775 h -7.08789 z"/><path d="m 711.2627,442.73596 c 0.86963,-0.86963 1.89795,-1.54346 3.0874,-2.02197 1.18799,-0.47803 2.49268,-0.71729 3.91309,-0.71729 1.50684,0 2.90576,0.3042 4.19629,0.91309 1.28955,0.60889 2.44189,1.50781 3.45654,2.6958 l 4.56592,-4.17432 c -1.4502,-1.76758 -3.24707,-3.10889 -5.39209,-4.02197 -2.14551,-0.91309 -4.53711,-1.36963 -7.17432,-1.36963 -2.34814,0 -4.52979,0.38477 -6.54443,1.15234 -2.01514,0.76855 -3.76855,1.86279 -5.26123,3.28271 -1.49316,1.4209 -2.65234,3.0874 -3.47852,5.00049 -0.82617,1.91357 -1.23926,4.01562 -1.23926,6.30518 0,2.29004 0.41309,4.3916 1.23926,6.30469 0.82617,1.91357 1.97852,3.58057 3.45703,5.00049 1.47803,1.4209 3.22412,2.51514 5.23926,3.2832 2.01465,0.76758 4.19629,1.15234 6.54443,1.15234 2.6665,0 5.07227,-0.46436 7.21777,-1.3916 2.14502,-0.92725 3.94189,-2.27539 5.39209,-4.04395 l -4.56592,-4.17432 c -1.01465,1.18896 -2.16699,2.09473 -3.45654,2.71777 -1.29053,0.62354 -2.68945,0.93506 -4.19629,0.93506 -1.42041,0 -2.7251,-0.23926 -3.91309,-0.71777 -1.18945,-0.47803 -2.21777,-1.15234 -3.0874,-2.02197 -0.86963,-0.86963 -1.54395,-1.89795 -2.02197,-3.08691 -0.47852,-1.18848 -0.71729,-2.50732 -0.71729,-3.95703 0,-1.44922 0.23877,-2.76807 0.71729,-3.95703 0.47803,-1.18848 1.15234,-2.21777 2.02197,-3.0874 z"/><path d="m 755.00537,455.19397 c 1.97119,-0.85498 3.49316,-2.10156 4.56592,-3.73975 1.07227,-1.63721 1.60889,-3.60156 1.60889,-5.8916 0,-3.42041 -1.17432,-6.10938 -3.52197,-8.06592 -2.34814,-1.95703 -5.63867,-2.93506 -9.87061,-2.93506 h -13.00146 v 30.4375 h 7.08789 v -8.52246 h 6.0874 c 0.10492,0 0.20007,-0.0111 0.30389,-0.0123 l 5.91388,8.53479 h 7.56641 l -6.78369,-9.78943 c 0.0139,-0.006 0.0297,-0.01 0.0435,-0.0157 z m -2.56543,-13.52295 c 1.10156,0.91309 1.65234,2.21045 1.65234,3.8916 0,1.68164 -0.55078,2.98584 -1.65234,3.91309 -1.10205,0.92822 -2.7251,1.3916 -4.86963,1.3916 h -5.69629 V 440.3009 h 5.69629 c 2.14453,0 3.76758,0.45703 4.86963,1.37012 z"/><path d="m 787.87842,446.77991 h -14.13184 v -6.56592 h 16.00147 v -5.65234 h -23.00244 v 30.4375 h 23.56738 v -5.65284 h -16.56641 v -7.04394 h 14.13184 z"/><path d="m 818.48975,436.45276 c -2.52197,-1.26074 -5.43506,-1.89111 -8.73975,-1.89111 h -13.82764 v 30.4375 H 809.75 c 3.30469,0 6.21777,-0.63037 8.73975,-1.8916 2.52197,-1.26074 4.49316,-3.02881 5.91357,-5.30469 1.41992,-2.27539 2.13086,-4.94971 2.13086,-8.02246 0,-3.07227 -0.71094,-5.74658 -2.13086,-8.02246 -1.42041,-2.27539 -3.3916,-4.04395 -5.91357,-5.30518 z m -0.32618,18.34961 c -0.82617,1.43506 -1.98584,2.53711 -3.47852,3.30469 -1.49316,0.76855 -3.25439,1.15234 -5.2832,1.15234 h -6.3916 v -18.9585 h 6.3916 c 2.02881,0 3.79004,0.38477 5.2832,1.15234 1.49268,0.76855 2.65234,1.86328 3.47852,3.2832 0.82617,1.42041 1.23926,3.10205 1.23926,5.04395 0,1.91309 -0.41309,3.5874 -1.23926,5.02197 z"/><path d="m 831.83887,434.56165 h 7.08789 v 30.4375 h -7.08789 z"/><path d="m 852.40625,440.3009 v 24.69825 h 7.04395 V 440.3009 h 9.74023 v -5.73925 h -26.52441 v 5.73925 z"/></g></svg></div>
       <div>
         <h1 class="display">CRM</h1>
-        <p>Every company and person, every touch. Feeds the Pipeline and the Referral Partner Tracker.</p>
+        <p>Every company and person, every touch, and every COI. Feeds the Pipeline.</p>
         <p class="sub" id="syncLine"></p>
       </div>
     </div>
@@ -304,7 +305,6 @@
         <option value="">Switch tool…</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-hub/">Terminal</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-debt-deals/">Pipeline</option>
-        <option value="https://cobaltcommercialcredit.github.io/cobalt-referral-partners/">Referral Partners</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-prospect-engine/">CRE Prospector</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-bank-matrix/">Bank Matrix</option>
         <option value="https://cobaltcommercialcredit.github.io/cobalt-treasury-audit/">Treasury Firepower Audit</option>
@@ -324,6 +324,7 @@
     <button class="tab" data-view="today">Today<span class="ct" id="ct-today">0</span></button>
     <button class="tab" data-view="companies">Companies<span class="ct" id="ct-companies">0</span></button>
     <button class="tab" data-view="contacts">Contacts<span class="ct" id="ct-contacts">0</span></button>
+    <button class="tab" data-view="cois">COIs<span class="ct" id="ct-cois">0</span></button>
     <button class="tab" data-view="suggested">Suggested<span class="ct" id="ct-suggested">0</span></button>
     <button class="tab" data-view="inbox">Inbox leads<span class="ct" id="ct-inbox">0</span></button>
     <button class="tab" data-view="campaigns">Sources &amp; Campaigns</button>
@@ -375,7 +376,7 @@
     filters:{ owner:'', status:'', source:'', role:'', search:'' },
     sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' } },
     openId:null, logType:'Call',
-    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'' },
+    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'', cois:'' },
     leads:[], syncStatus:null, suggestions:[],
     selected:{ companies:{}, contacts:{} }
   };
@@ -412,8 +413,8 @@
   var COI_ROLES = ['COI','CPA','Attorney','Wealth advisor','Lender'];
   function isReferralSource(c){ return (c.roles||[]).some(function(r){ return COI_ROLES.indexOf(r)>=0; }); }
   function coiControl(c){
-    if(c.referral_partner_id) return '<span class="pill s-Partner" title="In the Referral Partner Tracker">COI in tracker</span>';
-    if(isReferralSource(c)) return '<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'" title="Add to the Referral Partner Tracker">Make COI</button>';
+    if(c.referral_partner_id) return '<span class="pill s-Partner" title="Active COI">Active COI</span>';
+    if(isReferralSource(c)) return '<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'" title="Make this person an active referral source">Make COI</button>';
     return '';
   }
   function blocked(co){ return co && (co.do_not_contact || co.conflict_flag || co.status==='Do Not Contact'); }
@@ -460,7 +461,7 @@
       get('/debt_deals?select=id,company_name,stage,instrument_type,estimated_amount,actual_commission,funded_date,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
       get('/cre_deals?select=id,company_name,stage,deal_type,requested_amount,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
       get('/slb_deals?select=id,company_name,stage,estimated_amount,actual_commission,funded_date,crm_company_id,crm_contact_id,referral_partner_id,assigned_to,updated_at'),
-      get('/referral_partners?select=id,partner_name,partner_type,status,crm_contact_id,crm_company_id'),
+      get('/referral_partners?select=id,partner_name,partner_type,status,assigned_to,crm_contact_id,crm_company_id'),
       get('/crm_inbox_leads?select=*&status=eq.new&order=received_at.desc&limit=200').catch(function(){ return []; }),
       api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; }),
       get('/crm_suggested_contacts?select=*&order=last_seen.desc&limit=300').catch(function(){ return []; })
@@ -621,7 +622,7 @@
           '<td>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'')+'</td>'+
           '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
           '<td><input type="date" class="touch-date '+touchClass(c.next_touch_date)+'" data-ctouch="'+esc(c.id)+'" value="'+esc(c.next_touch_date||'')+'"></td>'+
-          '<td>'+(c.referral_partner_id?'<a class="btn btn-sm" href="'+TOOL+'cobalt-referral-partners/" target="_blank" rel="noopener">In tracker</a>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td>'+
+          '<td>'+(c.referral_partner_id?'<button class="btn btn-sm" data-gocois="1">Active COI</button>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td>'+
           '<td><button class="icon-del" data-delct="'+esc(c.id)+'" title="Delete contact">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div>';
   }
@@ -807,6 +808,7 @@
     $('ct-contacts').textContent=state.contacts.length;
     $('ct-inbox').textContent=state.leads.length;
     $('ct-suggested').textContent=state.suggestions.length;
+    $('ct-cois').textContent=state.contacts.filter(function(c){ return c.referral_partner_id||hasRole(c,'COI'); }).length;
     renderSyncLine();
   }
 
@@ -816,11 +818,11 @@
     $('fSource').innerHTML=opts(SOURCES, state.filters.source, 'All sources');
     $('fRole').innerHTML=opts(ROLES, state.filters.role, 'All roles');
     var v=state.view;
-    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested');
+    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested'||v==='cois');
     $('fStatus').style.display=simple?'none':'';
     $('fSource').style.display=simple?'none':'';
     $('fRole').style.display=simple?'none':'';
-    $('fSearch').style.display=simple?'none':'';
+    $('fSearch').style.display=(simple&&v!=='cois')?'none':'';
     $('fOwner').style.display=(v==='inbox'||v==='suggested')?'none':'';
   }
   function render(){
@@ -833,6 +835,7 @@
     else if(v==='contacts') $('view').innerHTML=renderContacts();
     else if(v==='inbox') $('view').innerHTML=renderInbox();
     else if(v==='suggested') $('view').innerHTML=renderSuggested();
+    else if(v==='cois') $('view').innerHTML=renderCois();
     else $('view').innerHTML=renderCampaigns();
     syncDelButton();
   }
@@ -1007,6 +1010,7 @@
     try{
       await patch('crm_companies', id, fields);
       if(field==='status' && old!==v) await logSystem(id, 'Status '+(old||'none')+' → '+v);
+      if(field==='referred_by_contact_id'){ var nd=await syncDealCredit(id); var rc=v?contact(v):null; await logSystem(id, rc?'Referred by '+fullName(rc)+(nd?'; credit updated on '+nd+' deal'+(nd>1?'s':''):''):'Referral credit removed'+(nd?' from '+nd+' deal'+(nd>1?'s':''):'')); }
       toast('Saved');
       if(['status','do_not_contact','conflict_flag','referred_by_contact_id'].indexOf(field)>=0){ await refresh(); openCompany(id); } else render();
     }catch(e){ co[field]=old; toast('Save failed: '+e.message); }
@@ -1089,7 +1093,80 @@
     });
   }
 
-  // ---------- Make COI: feeds the Referral Partner Tracker ----------
+  // ---------- COIs: referral sources (replaces the old Referral Partner Tracker) ----------
+  // A COI is a person with a referral role. Their partner record (type, status) stays in referral_partners,
+  // which the Pipeline and Terminal read for referral credit.
+  var PARTNER_TYPES = ['Bank','COI – CPA','COI – Attorney','COI – Wealth Advisor','Broker','Other'];
+  var PARTNER_STATUSES = ['Prospecting','Contacted','Active','Dormant','Terminated'];
+  function partnerOf(c){ return c && c.referral_partner_id ? state.partners.filter(function(p){ return p.id===c.referral_partner_id; })[0] : null; }
+  function coiProductionFor(c){
+    var p=partnerOf(c), seen={}, out={ companies:0, deals:0, funded:0, commission:0 };
+    state.companies.forEach(function(co){ if(co.referred_by_contact_id===c.id) out.companies++; });
+    state.deals.forEach(function(d){
+      var co=d.crm_company_id?company(d.crm_company_id):null;
+      if((p && d.referral_partner_id===p.id) || (co && co.referred_by_contact_id===c.id)){
+        if(seen[d.table+d.id]) return; seen[d.table+d.id]=1;
+        out.deals++; if(d.stage==='Funded'||d.stage==='SLB Closed'){ out.funded++; out.commission+=Number(d.actual_commission)||0; }
+      }
+    });
+    return out;
+  }
+  function coiRows(){
+    var f=state.filters, q=f.search.trim().toLowerCase();
+    return state.contacts.filter(function(c){
+      if(!c.referral_partner_id && !hasRole(c,'COI')) return false;
+      var co=company(c.company_id), p=partnerOf(c);
+      if(f.owner && (c.owner||(co&&co.owner)||(p&&p.assigned_to))!==f.owner) return false;
+      if(q && (fullName(c)+' '+(co?co.name:'')+' '+c.email+' '+c.phone).toLowerCase().indexOf(q)<0) return false;
+      return true;
+    });
+  }
+  function renderCois(){
+    var rows=coiRows().map(function(c){ return { c:c, p:partnerOf(c), co:company(c.company_id), prod:coiProductionFor(c) }; })
+      .sort(function(a,b){ return (b.prod.deals-a.prod.deals) || (b.prod.companies-a.prod.companies) || fullName(a.c).localeCompare(fullName(b.c)); });
+    $('countPill').textContent=rows.length+' COI'+(rows.length===1?'':'s');
+    if(!rows.length) return '<div class="empty"><div class="display">No COIs yet.</div><p>Give a person the COI, CPA, Attorney, Wealth advisor, or Lender role, then Make COI. Set "Referred by" on a company to credit them.</p></div>';
+    return '<div class="tablewrap"><table class="tbl-coi"><thead><tr><th>COI</th><th>Firm</th><th>Type</th><th>Status</th><th>Referred</th><th>Deals</th><th>Funded</th><th>Commission</th><th>Last touch</th><th>Next touch</th></tr></thead><tbody>'+
+      rows.map(function(x){
+        var c=x.c, p=x.p, co=x.co;
+        var nameCell=(co?'<span class="linkish" data-open="'+esc(co.id)+'">':'<span class="linkish" data-opencontact="'+esc(c.id)+'">')+esc(fullName(c)||c.email)+'</span>'+(c.title?'<div class="sub">'+esc(c.title)+'</div>':'');
+        var typeCell=p?'<select class="compact-select" data-ptype="'+esc(p.id)+'">'+opts(PARTNER_TYPES, p.partner_type)+'</select>':'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>';
+        var statusCell=p?'<select class="compact-select" data-pstatus="'+esc(p.id)+'">'+opts(PARTNER_STATUSES, p.status)+'</select>':'<span class="sub">Not active</span>';
+        return '<tr><td>'+nameCell+'</td><td>'+(co?esc(co.name):'<span class="sub">Individual</span>')+'</td><td>'+typeCell+'</td><td>'+statusCell+'</td>'+
+          '<td>'+x.prod.companies+'</td><td>'+x.prod.deals+'</td><td>'+x.prod.funded+'</td><td>'+(x.prod.commission?esc(fmtMoney(x.prod.commission)):'')+'</td>'+
+          '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
+          '<td><input type="date" class="touch-date '+touchClass(c.next_touch_date)+'" data-ctouch="'+esc(c.id)+'" value="'+esc(c.next_touch_date||'')+'"></td></tr>';
+      }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Credit comes from "Referred by" on a company, and carries onto that company\'s deals in the Pipeline.</p>';
+  }
+  // Silent version of Make COI, used when someone is picked as "Referred by" before they were made a COI.
+  async function ensurePartner(c){
+    if(!c) return null;
+    if(c.referral_partner_id) return partnerOf(c) || { id:c.referral_partner_id, partner_name:(company(c.company_id)||{}).name||fullName(c) };
+    var co=company(c.company_id), pid=uid('partner'), pname=co?co.name:fullName(c);
+    await insert('referral_partners',[{ id:pid, partner_name:pname, partner_type:partnerTypeFor(c), contact_name:fullName(c), phone:c.phone||'', email:c.email||'',
+      assigned_to:c.owner||(co&&co.owner)||me(), status:'Active', next_touch_date:'', last_touch_date:'', notes_log:[], created_at:new Date().toISOString(), crm_contact_id:c.id, crm_company_id:co?co.id:null }]);
+    var roles=(c.roles||[]).slice(); if(roles.indexOf('COI')<0) roles.push('COI');
+    await patch('crm_contacts', c.id, { referral_partner_id:pid, roles:roles });
+    c.referral_partner_id=pid;
+    return { id:pid, partner_name:pname };
+  }
+  // Keep referral credit on a company's deals in step with its "Referred by".
+  async function syncDealCredit(companyId){
+    var co=company(companyId); if(!co) return 0;
+    var ref=co.referred_by_contact_id?contact(co.referred_by_contact_id):null;
+    var p=ref?await ensurePartner(ref):null;
+    var deals=dealsOf(companyId), n=0;
+    for(var i=0;i<deals.length;i++){
+      var d=deals[i], want=p?p.id:null;
+      if((d.referral_partner_id||null)===want) continue;
+      var f={ referral_partner_id:want, referral_partner_name:p?p.partner_name:null };
+      if(d.table!=='cre_deals' && p){ f.referral_source=(partnerOf(ref)||{}).partner_type==='Bank'?'Bank Referral Partner':'COI'; }
+      await patch(d.table, d.id, f); n++;
+    }
+    return n;
+  }
+
+  // ---------- Make COI: turns a person into an active referral source ----------
   function partnerTypeFor(c){
     if(hasRole(c,'CPA')) return 'COI – CPA';
     if(hasRole(c,'Attorney')) return 'COI – Attorney';
@@ -1100,10 +1177,10 @@
   async function makeCOI(contactId){
     var c=contact(contactId); if(!c) return;
     var co=company(c.company_id);
-    if(c.referral_partner_id){ toast('Already in the Referral Partner Tracker'); return; }
+    if(c.referral_partner_id){ toast('Already a COI'); return; }
     if(co && blocked(co)){ toast('Company is flagged. Clear the flag first.'); return; }
     var pname=co?co.name:fullName(c);
-    if(!confirm('Add '+(fullName(c)||c.email)+' to the Referral Partner Tracker as a '+partnerTypeFor(c)+' COI?')) return;
+    if(!confirm('Make '+(fullName(c)||c.email)+' an active COI ('+partnerTypeFor(c)+')? They\'ll appear on the COIs tab and can be credited for referrals.')) return;
     var pid=uid('partner');
     try{
       await insert('referral_partners',[{ id:pid, partner_name:pname, partner_type:partnerTypeFor(c), contact_name:fullName(c), phone:c.phone||'', email:c.email||'',
@@ -1111,8 +1188,8 @@
         crm_contact_id:c.id, crm_company_id:co?co.id:null }]);
       var roles=(c.roles||[]).slice(); if(roles.indexOf('COI')<0) roles.push('COI');
       await patch('crm_contacts', c.id, { referral_partner_id:pid, roles:roles });
-      if(co) await logSystem(co.id, fullName(c)+' added to the Referral Partner Tracker as a COI');
-      await refresh(); toast('Now a COI in the Referral Partner Tracker');
+      if(co) await logSystem(co.id, fullName(c)+' made an active COI');
+      await refresh(); toast(fullName(c)+' is now an active COI');
       if(state.openId) openCompany(state.openId);
     }catch(e){ toast('Could not create partner: '+e.message); }
   }
@@ -1392,7 +1469,7 @@
   async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
 
   document.addEventListener('click', function(e){
-    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],[data-delct],[data-delact],#addCampaignBtn');
+    var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],[data-delct],[data-delact],[data-gocois],#addCampaignBtn');
     if(!t) return;
     if(t.hasAttribute('data-close')){ closeModal(); return; }
     if(t.hasAttribute('data-open')){ openCompany(t.getAttribute('data-open'), { focusLog:t.hasAttribute('data-focuslog') }); return; }
@@ -1404,6 +1481,7 @@
     if(t.hasAttribute('data-editcontact')){ openContactForm(null, t.getAttribute('data-editcontact')); return; }
     if(t.hasAttribute('data-opendeal')){ openDealForm(t.getAttribute('data-opendeal')); return; }
     if(t.hasAttribute('data-nurture')){ openNurture(t.getAttribute('data-nurture')); return; }
+    if(t.hasAttribute('data-gocois')){ state.view='cois'; state.filters.owner=state.ownerByView.cois||''; render(); return; }
     if(t.hasAttribute('data-delco')){ deleteCompany(t.getAttribute('data-delco')); return; }
     if(t.hasAttribute('data-delct')){ deleteContacts([t.getAttribute('data-delct')]); return; }
     if(t.hasAttribute('data-delact')){ deleteActivity(t.getAttribute('data-delact')); return; }
@@ -1420,6 +1498,7 @@
   });
   document.addEventListener('change', function(e){
     var t=e.target;
+    if(t.hasAttribute('data-ptype')||t.hasAttribute('data-pstatus')){ var pid=t.getAttribute('data-ptype')||t.getAttribute('data-pstatus'), f={}; f[t.hasAttribute('data-ptype')?'partner_type':'status']=t.value; patch('referral_partners', pid, f).then(function(){ var pp=state.partners.filter(function(x){ return x.id===pid; })[0]; if(pp) Object.assign(pp,f); toast('Saved'); }).catch(function(err){ toast('Save failed: '+err.message); }); return; }
     if(t.hasAttribute('data-sel')){ var ps=t.getAttribute('data-sel').split('|'); state.selected[ps[0]][ps.slice(1).join('|')]=t.checked; syncDelButton(); return; }
     if(t.hasAttribute('data-selall')){ var v=t.getAttribute('data-selall'); Array.prototype.forEach.call(document.querySelectorAll('[data-sel^="'+v+'|"]'), function(cb){ cb.checked=t.checked; state.selected[v][cb.getAttribute('data-sel').split('|').slice(1).join('|')]=t.checked; }); syncDelButton(); return; }
     if(t.hasAttribute('data-touch')){ var co=company(t.getAttribute('data-touch')); if(!co) return; co.next_touch_date=t.value||null; patch('crm_companies', co.id, { next_touch_date:co.next_touch_date }).then(function(){ toast('Next touch set'); render(); }).catch(function(err){ toast('Save failed: '+err.message); }); return; }
@@ -1453,7 +1532,7 @@
     var people=0, cois=0; ok.forEach(function(id){ contactsOf(id).forEach(function(c){ people++; if(c.referral_partner_id) cois++; }); });
     var label=ok.length===1?company(ok[0]).name:ok.length+' companies';
     var msg='Permanently delete '+label+(people?', '+people+' '+(people===1?'person':'people'):'')+', and all activity history?'+
-      (cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' in the Referral Partner Tracker, unlinked.':'')+
+      (cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' keep their referral credit on past deals.':'')+
       (blockedIds.length?'\n\nSkipping '+blockedIds.length+' with linked deals.':'')+'\n\nFor real relationships, Dead or Do Not Contact keeps the history.';
     if(!confirm(msg)) return false;
     try{
@@ -1472,7 +1551,7 @@
     if(!ids.length) return false;
     var cois=ids.filter(function(id){ return contact(id).referral_partner_id; }).length;
     var label=ids.length===1?(fullName(contact(ids[0]))||'this contact'):ids.length+' contacts';
-    if(!confirm('Permanently delete '+label+'? Their logged activity stays on the company.'+(cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' in the Referral Partner Tracker, unlinked.':''))) return false;
+    if(!confirm('Permanently delete '+label+'? Their logged activity stays on the company.'+(cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' keep their referral credit on past deals.':''))) return false;
     try{
       for(var i=0;i<ids.length;i+=100) await delMany('crm_contacts', ids.slice(i,i+100));
       ids.forEach(function(id){ delete state.selected.contacts[id]; });
@@ -1522,6 +1601,8 @@
     state.ownerByView.today = me();
     state.filters.owner = state.ownerByView[state.view] || '';
     await refresh();
+    var vw=new URLSearchParams(location.search).get('view');
+    if(vw && document.querySelector('.tab[data-view="'+vw+'"]')){ state.view=vw; state.filters.owner=state.ownerByView[vw]||''; render(); }
     var cid=new URLSearchParams(location.search).get('company');
     if(cid && company(cid)) openCompany(cid);
   }
