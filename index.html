@@ -91,6 +91,7 @@
   .sub{ font-size:11.5px; color:var(--ink-faint); }
   .overdue{ color:var(--red); font-weight:600; }
   .due{ color:var(--amber); font-weight:600; }
+  .date-wrap{ display:contents; } .date-ph{ display:none; }
   input.touch-date{ font-size:12px; padding:4px 6px; border:1px solid var(--line); border-radius:6px; font-family:inherit; width:124px; background:var(--surface); }
 
   .pill{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; background:var(--grey-tint); color:var(--ink-soft); }
@@ -229,8 +230,12 @@
     .pill{ font-size:13.5px; padding:4px 10px; }
     td{ padding:16px 12px; }
     input.touch-date{ font-size:14px; padding:7px 6px; width:128px; }
+    .date-wrap{ display:inline-block; position:relative; }
+    .date-wrap.empty .date-ph{ display:flex; align-items:center; position:absolute; left:1px; top:1px; bottom:1px; right:1px; padding-left:10px; border-radius:6px; background:var(--surface); color:var(--accent,#0047AB); font-weight:600; font-size:14px; pointer-events:none; }
     .tbl-co th:nth-child(3), .tbl-co td:nth-child(3), .tbl-co th:nth-child(11), .tbl-co td:nth-child(11){ display:none; }
     .tbl-co td:nth-child(2){ width:100%; }
+    .tbl-lender th:nth-child(1), .tbl-lender td:nth-child(1), .tbl-lender th:nth-child(3), .tbl-lender td:nth-child(3), .tbl-lender th:nth-child(4), .tbl-lender td:nth-child(4), .tbl-lender th:nth-child(5), .tbl-lender td:nth-child(5), .tbl-lender th:nth-child(n+7), .tbl-lender td:nth-child(n+7){ display:none; }
+    .tbl-lender td:nth-child(2){ width:100%; }
     .tbl-co .pill{ font-size:12.5px; padding:3px 8px; }
     .tablewrap table{ min-width:0; }
     .tbl-co th:nth-child(1), .tbl-co td:nth-child(1), .tbl-co th:nth-child(n+4):nth-child(-n+9), .tbl-co td:nth-child(n+4):nth-child(-n+9){ display:none; }
@@ -325,6 +330,7 @@
     <button class="tab" data-view="companies">Companies<span class="ct" id="ct-companies">0</span></button>
     <button class="tab" data-view="contacts">Contacts<span class="ct" id="ct-contacts">0</span></button>
     <button class="tab" data-view="cois">COIs<span class="ct" id="ct-cois">0</span></button>
+    <button class="tab" data-view="lenders">Lenders<span class="ct" id="ct-lenders">0</span></button>
     <button class="tab" data-view="suggested">Suggested<span class="ct" id="ct-suggested">0</span></button>
     <button class="tab" data-view="inbox">Inbox leads<span class="ct" id="ct-inbox">0</span></button>
     <button class="tab" data-view="campaigns">Sources &amp; Campaigns</button>
@@ -361,6 +367,11 @@
   var OWNERS = ['Curtis','Armen','Lina','Alex'];
   var STATUSES = ['Prospect','Working','Qualified','Client','Partner','Nurture','Dead','Do Not Contact'];
   var CLOSED = { 'Dead':1, 'Do Not Contact':1 };
+  // Every company record has a type. Only 'company' (prospects and clients) shows on the Companies tab.
+  var KINDS = [{ v:'company', l:'Company (prospect or client)' },{ v:'lender', l:'Lender / bank' },{ v:'referral', l:'Referral firm (COI\'s firm)' }];
+  var KIND_LABEL = { company:'Company', lender:'Lender', referral:'Referral firm' };
+  function kindOf(co){ return (co&&co.kind)||'company'; }
+  function dateCell(attr, id, d){ return '<span class="date-wrap'+(d?'':' empty')+'"><input type="date" class="touch-date '+touchClass(d)+'" '+attr+'="'+esc(id)+'" value="'+esc(d||'')+'"><span class="date-ph">Set</span></span>'; }
   var SOURCES = ['Outbound','COI','Bank','Website','Inbox','SEM','Note card','Govcon','UCC','CRE Prospector','Event','LinkedIn','Other'];
   var ROLES = ['Owner','Decision maker','CFO/Controller','COI','Lender','CPA','Attorney','Wealth advisor','Other'];
   var ACT_TYPES = ['Call','Email','Meeting','Note card','LinkedIn','Text','Note'];
@@ -372,11 +383,11 @@
 
   var state = {
     session:null, view:'today',
-    companies:[], contacts:[], activities:[], campaigns:[], deals:[], partners:[],
+    companies:[], contacts:[], activities:[], campaigns:[], deals:[], partners:[], banks:[],
     filters:{ owner:'', status:'', source:'', role:'', search:'' },
-    sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' } },
+    sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' }, lenders:{ key:'name', dir:'asc' } },
     openId:null, logType:'Call',
-    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'', cois:'' },
+    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'', cois:'', lenders:'' },
     leads:[], syncStatus:null, suggestions:[],
     selected:{ companies:{}, contacts:{} }
   };
@@ -464,13 +475,14 @@
       get('/referral_partners?select=id,partner_name,partner_type,status,assigned_to,crm_contact_id,crm_company_id'),
       get('/crm_inbox_leads?select=*&status=eq.new&order=received_at.desc&limit=200').catch(function(){ return []; }),
       api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; }),
-      get('/crm_suggested_contacts?select=*&order=last_seen.desc&limit=300').catch(function(){ return []; })
+      get('/crm_suggested_contacts?select=*&order=last_seen.desc&limit=300').catch(function(){ return []; }),
+      get('/bank_matrix?select=id,crm_company_id').catch(function(){ return []; })
     ]);
     state.companies=r[0]||[]; state.contacts=r[1]||[]; state.activities=r[2]||[]; state.campaigns=r[3]||[];
     state.deals = (r[4]||[]).map(function(d){ d.table='debt_deals'; d.pipe='Credit'; d.amount=d.estimated_amount; return d; })
       .concat((r[5]||[]).map(function(d){ d.table='cre_deals'; d.pipe='CRE'; d.amount=d.requested_amount; d.instrument_type=CRE_TYPES[d.deal_type]||'CRE'; return d; }))
       .concat((r[6]||[]).map(function(d){ d.table='slb_deals'; d.pipe='SLB'; d.amount=d.estimated_amount; d.instrument_type='SLB'; return d; }));
-    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null; state.suggestions=r[10]||[];
+    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null; state.suggestions=r[10]||[]; state.banks=r[11]||[];
   }
   function dealOpen(d){ return ['Dead','Funded','SLB Dead','SLB Closed'].indexOf(d.stage)<0; }
   function dealLink(d){
@@ -485,7 +497,7 @@
       if(CLOSED[co.status]||co.do_not_contact||!co.next_touch_date||co.next_touch_date>wk) return;
       if(own && co.owner!==own) return;
       var p=primaryOf(co.id);
-      items.push({ kind:'Follow up', date:co.next_touch_date, company:co, title:co.name, why:(p?fullName(p)+(p.title?', '+p.title:'')+' · ':'')+(co.status==='Nurture'&&co.nurture_reason?'Nurture: '+co.nurture_reason:statusOfLine(co)) });
+      items.push({ kind:kindOf(co)==='company'?'Follow up':KIND_LABEL[kindOf(co)], date:co.next_touch_date, company:co, title:co.name, why:(p?fullName(p)+(p.title?', '+p.title:'')+' · ':'')+(co.status==='Nurture'&&co.nurture_reason?'Nurture: '+co.nurture_reason:statusOfLine(co)) });
     });
     state.contacts.forEach(function(c){
       if(c.do_not_contact||!c.next_touch_date||c.next_touch_date>wk) return;
@@ -504,7 +516,7 @@
     state.deals.forEach(function(d){
       if((d.stage==='Dead'||d.stage==='SLB Dead') && d.crm_company_id){
         var co=company(d.crm_company_id);
-        if(co && ['Nurture','Dead','Do Not Contact','Client','Partner'].indexOf(co.status)<0 && !dealsOf(co.id).some(dealOpen)){
+        if(co && kindOf(co)==='company' && ['Nurture','Dead','Do Not Contact','Client','Partner'].indexOf(co.status)<0 && !dealsOf(co.id).some(dealOpen)){
           if(own && co.owner!==own) return;
           items.push({ kind:'Recycle', date:t, company:co, title:co.name, why:'Deal marked Dead in pipeline. Move to Nurture with a reason and a re-touch date, or close it out.' });
         }
@@ -539,9 +551,11 @@
   }
 
   // ---------- companies ----------
-  function filteredCompanies(){
+  function filteredCompanies(kind){
     var f=state.filters, q=f.search.trim().toLowerCase();
+    kind=kind||(state.view==='lenders'?'lender':'company');
     return state.companies.filter(function(co){
+      if(kindOf(co)!==kind) return false;
       if(f.owner && co.owner!==f.owner) return false;
       if(f.status && co.status!==f.status) return false;
       if(!f.status && CLOSED[co.status] && !q) return false;
@@ -573,9 +587,9 @@
       return co[k];
     });
     $('countPill').textContent=rows.length+' compan'+(rows.length===1?'y':'ies');
-    var hidden=state.companies.filter(function(co){ return !CLOSED[co.status]; }).length-rows.length;
+    var hidden=state.companies.filter(function(co){ return kindOf(co)==='company' && !CLOSED[co.status]; }).length-rows.length;
     $('countPill').textContent=rows.length+' compan'+(rows.length===1?'y':'ies')+(hidden>0&&(state.filters.owner||state.filters.status||state.filters.source||state.filters.role||state.filters.search)?' · '+hidden+' hidden by filters':'');
-    if(!rows.length) return '<div class="empty"><div class="display">No companies match.</div><p>Add one, import a list, or pull records from the Prospect Engine. Dead and Do Not Contact records are hidden unless you filter for them or search.</p></div>';
+    if(!rows.length) return '<div class="empty"><div class="display">No companies match.</div><p>Add one, import a list, or pull records from CRE Prospector. Dead and Do Not Contact records are hidden unless you filter for them or search. Banks are on the Lenders tab; COI firms are on the COIs tab.</p></div>';
     var allSel=rows.length&&rows.every(function(co){ return state.selected.companies[co.id]; });
     return '<div class="tablewrap"><table class="tbl-co"><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('companies','name','Company')+th('companies','status','Status')+th('companies','contact','Primary contact')+
       th('companies','owner','Owner')+'<th class="hide-sm" data-sort="companies|source">Source</th>'+th('companies','annual_revenue','Revenue')+th('companies','deals','Open deals')+
@@ -590,9 +604,29 @@
           '<td>'+esc(fmtMoney(co.annual_revenue))+'</td>'+
           '<td>'+(od.length?od.map(function(d){ return '<span class="pill role">'+esc(d.pipe)+' · '+esc(d.stage)+'</span>'; }).join(' '):'')+'</td>'+
           '<td>'+esc(fmtDate(co.last_touch_date))+'</td>'+
-          '<td><input type="date" class="touch-date '+touchClass(co.next_touch_date)+'" data-touch="'+esc(co.id)+'" value="'+esc(co.next_touch_date||'')+'"></td>'+
+          '<td>'+dateCell('data-touch', co.id, co.next_touch_date)+'</td>'+
           '<td><button class="icon-del" data-delco="'+esc(co.id)+'" title="Delete company">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div>';
+  }
+
+  // ---------- lenders: banks and lenders we place deals with ----------
+  function renderLenders(){
+    var rows=sortRows(filteredCompanies('lender'), state.sort.lenders, function(co,k){ if(k==='people') return contactsOf(co.id).length; return co[k]; });
+    $('countPill').textContent=rows.length+' lender'+(rows.length===1?'':'s');
+    if(!rows.length) return '<div class="empty"><div class="display">No lenders match.</div><p>Banks added in the Bank Matrix land here automatically. Bankers who also send you deals show on the COIs tab too.</p></div>';
+    var allSel=rows.every(function(co){ return state.selected.companies[co.id]; });
+    return '<div class="tablewrap"><table class="tbl-lender"><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('lenders','name','Lender')+'<th>People</th>'+th('lenders','owner','Owner')+th('lenders','last_touch_date','Last touch')+th('lenders','next_touch_date','Next touch')+'<th class="desk-only">Bank Matrix</th><th></th></tr></thead><tbody>'+
+      rows.map(function(co){
+        var ppl=contactsOf(co.id), cois=ppl.filter(function(c){ return c.referral_partner_id||hasRole(c,'COI'); });
+        var inMatrix=state.banks.some(function(b){ return b.crm_company_id===co.id; });
+        return '<tr><td class="sel"><input type="checkbox" data-sel="companies|'+esc(co.id)+'"'+(state.selected.companies[co.id]?' checked':'')+'></td>'+
+          '<td><span class="linkish" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span>'+(co.do_not_contact?' <span class="pill flag">DNC</span>':'')+(cois.length?' <span class="pill role" title="A banker here refers deals to us">Refers deals</span>':'')+'</td>'+
+          '<td>'+(ppl.length?ppl.slice(0,3).map(function(c){ return esc(fullName(c)||c.email); }).join(', ')+(ppl.length>3?' +'+(ppl.length-3):''):'<span class="sub">None</span>')+'</td>'+
+          '<td>'+esc(co.owner)+'</td><td>'+esc(fmtDate(co.last_touch_date))+'</td>'+
+          '<td>'+dateCell('data-touch', co.id, co.next_touch_date)+'</td>'+
+          '<td class="desk-only">'+(inMatrix?'<a class="btn btn-sm" href="'+TOOL+'cobalt-bank-matrix/" target="_blank" rel="noopener">Open</a>':'<span class="sub">Not in matrix</span>')+'</td>'+
+          '<td><button class="icon-del" data-delco="'+esc(co.id)+'" title="Delete lender">'+TRASH+'</button></td></tr>';
+      }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Lenders are where we place deals, not prospects. Their emails and meetings still log here. Programs and appetite live in the Bank Matrix.</p>';
   }
 
   // ---------- contacts ----------
@@ -621,7 +655,7 @@
           '<td>'+(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'')+'</td>'+
           '<td>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'')+'</td>'+
           '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
-          '<td><input type="date" class="touch-date '+touchClass(c.next_touch_date)+'" data-ctouch="'+esc(c.id)+'" value="'+esc(c.next_touch_date||'')+'"></td>'+
+          '<td>'+dateCell('data-ctouch', c.id, c.next_touch_date)+'</td>'+
           '<td>'+(c.referral_partner_id?'<button class="btn btn-sm" data-gocois="1">Active COI</button>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td>'+
           '<td><button class="icon-del" data-delct="'+esc(c.id)+'" title="Delete contact">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -771,7 +805,7 @@
         var nm=cleanName(sg.name, sg.email).split(/\s+/), dom=sg.domain||'';
         var lender=looksLikeLender(dom);
         openAddCompany({ name: FREE_MAIL.test(dom)?nm.join(' '):leadCompanyName({ from_email:email, from_name:sg.name }), first:nm[0]||'', last:nm.slice(1).join(' '), email:email,
-          status: lender?'Partner':'', source: lender?'Bank':'', roles: lender?['Lender']:null, guessDomain: FREE_MAIL.test(dom)?'':dom, displayName: sg.name,
+          status: lender?'Partner':'', source: lender?'Bank':'', roles: lender?['Lender']:null, kind: lender?'lender':'company', guessDomain: FREE_MAIL.test(dom)?'':dom, displayName: sg.name,
           onSaved:function(){ return markSuggestion(email,'added').then(rescanPast); } });
         return;
       }
@@ -801,7 +835,7 @@
   // ---------- summary ----------
   function renderSummary(){
     var t=today(), wkAgo=new Date(Date.now()-7*864e5).toISOString(), own=state.filters.owner;
-    var live=state.companies.filter(function(c){ return !CLOSED[c.status] && (!own||c.owner===own); });
+    var live=state.companies.filter(function(c){ return kindOf(c)==='company' && !CLOSED[c.status] && (!own||c.owner===own); });
     var q=queueItems();
     var overdue=q.filter(function(i){ return i.date<t; }).length, dueToday=q.filter(function(i){ return i.date===t; }).length;
     var touches=state.activities.filter(function(a){ return a.completed && a.type!=='System' && a.type!=='Task' && a.created_at>=wkAgo && (!own||a.owner===own); }).length;
@@ -813,7 +847,8 @@
       [touches,'Touches · 7 days','accent'],[noTouch,'No next touch',noTouch?'warn':''],[cois+' / '+nurture,'COIs / Nurture','']
     ].map(function(c){ return '<div class="cell"><div class="num '+c[2]+'">'+c[0]+'</div><div class="lbl">'+c[1]+'</div></div>'; }).join('');
     $('ct-today').textContent=q.filter(function(i){ return i.date<=t; }).length;
-    $('ct-companies').textContent=state.companies.filter(function(c){ return !CLOSED[c.status]; }).length;
+    $('ct-companies').textContent=state.companies.filter(function(c){ return kindOf(c)==='company' && !CLOSED[c.status]; }).length;
+    $('ct-lenders').textContent=state.companies.filter(function(c){ return kindOf(c)==='lender' && !CLOSED[c.status]; }).length;
     $('ct-contacts').textContent=state.contacts.length;
     $('ct-inbox').textContent=state.leads.length;
     $('ct-suggested').textContent=state.suggestions.length;
@@ -827,11 +862,11 @@
     $('fSource').innerHTML=opts(SOURCES, state.filters.source, 'All sources');
     $('fRole').innerHTML=opts(ROLES, state.filters.role, 'All roles');
     var v=state.view;
-    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested'||v==='cois');
+    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested'||v==='cois'||v==='lenders');
     $('fStatus').style.display=simple?'none':'';
     $('fSource').style.display=simple?'none':'';
     $('fRole').style.display=simple?'none':'';
-    $('fSearch').style.display=(simple&&v!=='cois')?'none':'';
+    $('fSearch').style.display=(simple&&v!=='cois'&&v!=='lenders')?'none':'';
     $('fOwner').style.display=(v==='inbox'||v==='suggested')?'none':'';
   }
   function render(){
@@ -845,6 +880,7 @@
     else if(v==='inbox') $('view').innerHTML=renderInbox();
     else if(v==='suggested') $('view').innerHTML=renderSuggested();
     else if(v==='cois') $('view').innerHTML=renderCois();
+    else if(v==='lenders') $('view').innerHTML=renderLenders();
     else $('view').innerHTML=renderCampaigns();
     syncDelButton();
   }
@@ -871,9 +907,10 @@
   // ---------- add company ----------
   function openAddCompany(prefill){
     prefill=prefill||{};
-    showModal('<div class="modal-head"><div><h2 class="display">Add a company</h2><p>The company and its first person. Banks, CPA firms, and law firms are companies too; set the person\'s role below.</p></div><button class="x" data-close>×</button></div>'+
+    showModal('<div class="modal-head"><div><h2 class="display">Add a company</h2><p>The company and its first person. Set the type: banks are Lenders, a COI\'s CPA or law firm is a Referral firm.</p></div><button class="x" data-close>×</button></div>'+
       '<div class="modal-body"><div id="dupWarn"></div><div class="grid2">'+
       '<div class="fb" style="grid-column:1/-1"><label>Company name *</label><input id="acName" value="'+esc(prefill.name||'')+'">'+(prefill.guessDomain?'<div class="sub" id="acNameHint" style="margin-top:4px">Guessed from '+esc(prefill.guessDomain)+'. Fixing spacing…</div>':'')+'</div>'+
+      '<div class="fb" style="grid-column:1/-1"><label>Type</label><select id="acKind">'+opts(KINDS, prefill.kind||(prefill.guessDomain&&looksLikeLender(prefill.guessDomain)?'lender':'company'))+'</select></div>'+
       '<div class="fb"><label>Industry</label><input id="acIndustry" value="'+esc(prefill.industry||'')+'"></div><div class="fb"><label>Annual revenue</label><input id="acRevenue" placeholder="e.g. 8.5M"></div>'+
       '<div class="fb"><label>Website</label><input id="acWebsite" value="'+esc(prefill.website||'')+'"></div><div class="fb"><label>City, State</label><input id="acCity" placeholder="Irvine, CA" value="'+esc(prefill.city||'')+'"></div>'+
       '<div class="fb"><label>Status</label><select id="acStatus">'+opts(STATUSES,prefill.status||'Prospect')+'</select></div><div class="fb"><label>Owner</label><select id="acOwner">'+opts(OWNERS, me(), 'Unassigned')+'</select></div>'+
@@ -905,7 +942,7 @@
       var dups=findDuplicates(name, val('acEmail'), val('acPhone'));
       if(dups.length && !confirm('This looks like '+dups[0].co.name+' ('+dups[0].why+'). Create a separate record anyway?')) return;
       var cityParts=val('acCity').split(',');
-      var co={ id:uid('co'), name:name, industry:val('acIndustry'), website:val('acWebsite'), annual_revenue:parseMoney(val('acRevenue')),
+      var co={ id:uid('co'), name:name, kind:val('acKind')||'company', industry:val('acIndustry'), website:val('acWebsite'), annual_revenue:parseMoney(val('acRevenue')),
         city:(cityParts[0]||'').trim(), state:(cityParts[1]||'').trim(), status:val('acStatus')||'Prospect', owner:val('acOwner'), source:val('acSource'),
         campaign_id:val('acCampaign')||null, referred_by_contact_id:val('acReferrer')||null, next_touch_date:val('acNext')||null, dedupe_key:normName(name), created_by:who() };
       var ct=null;
@@ -939,6 +976,7 @@
 
     var left='<div class="grid2">'+
       '<div class="fb" style="grid-column:1/-1"><label>Company name</label><input data-f="name" value="'+esc(co.name)+'"></div>'+
+      '<div class="fb" style="grid-column:1/-1"><label>Type</label><select data-f="kind">'+opts(KINDS, kindOf(co))+'</select></div>'+
       fld('Status','<select data-f="status">'+opts(STATUSES,co.status)+'</select>')+fld('Owner','<select data-f="owner">'+opts(OWNERS,co.owner,'Unassigned')+'</select>')+
       fld('Industry','<input data-f="industry" value="'+esc(co.industry)+'">')+fld('Annual revenue','<input data-f="annual_revenue" data-money="1" value="'+esc(co.annual_revenue==null?'':fmtMoney(co.annual_revenue))+'">')+
       fld('Website','<input data-f="website" value="'+esc(co.website)+'">')+fld('Employees','<input data-f="employees" type="number" value="'+esc(co.employees==null?'':co.employees)+'">')+
@@ -958,11 +996,14 @@
           '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+(c.phone?'<a class="btn btn-sm" href="tel:'+esc(c.phone)+'">Call</a>':'')+(c.email?'<a class="btn btn-sm" href="mailto:'+esc(c.email)+'">Email</a>':'')+'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'">Edit</button>'+coiControl(c)+'</div></div></div>';
       }).join(''):'<div class="sub">No people yet.</div>');
 
-    left+='<div class="section-title">Deals ('+deals.length+') <span><button class="btn btn-sm btn-primary" data-opendeal="'+esc(id)+'"'+(blocked(co)?' disabled title="Blocked by flag"':'')+'>Open deal</button></span></div>'+
+    if(kindOf(co)==='lender') left+='<div class="section-title">Lender</div><div class="sub">This is a bank or lender we place deals with, so it has no deal pipeline of its own. <a href="'+TOOL+'cobalt-bank-matrix/" target="_blank" rel="noopener">Open the Bank Matrix</a> for programs and appetite.</div>';
+    else if(kindOf(co)==='referral') left+='<div class="section-title">Referral firm</div><div class="sub">A COI\'s firm. Their referrals and credit show on the COIs tab.</div>';
+    if(kindOf(co)==='company' || deals.length) left+='<div class="section-title">Deals ('+deals.length+') <span><button class="btn btn-sm btn-primary" data-opendeal="'+esc(id)+'"'+(blocked(co)?' disabled title="Blocked by flag"':'')+'>Open deal</button></span></div>'+
       (deals.length?deals.map(function(d){
         return '<div class="card"><div class="row"><div><b>'+esc(d.pipe)+'</b> · '+esc(d.instrument_type||'')+' · '+esc(fmtMoney(d.amount))+'<div class="meta">'+esc(d.stage)+(d.assigned_to?' · '+esc(d.assigned_to):'')+'</div></div>'+
           '<a class="btn btn-sm" href="'+esc(dealLink(d))+'" target="_blank" rel="noopener">Open in '+(d.table==='cre_deals'?'CRE calc':'Pipeline')+'</a></div></div>';
       }).join(''):'<div class="sub">No deals. Open one when the company qualifies; it lands in the right pipeline already linked.</div>');
+    left=left.replace('data-opendeal="'+esc(id)+'"', kindOf(co)==='company'?'data-opendeal="'+esc(id)+'"':'data-opendeal="'+esc(id)+'" style="display:none"');
 
     if(co.linked_prospect_id) left+='<div class="section-title">CRE Prospector record</div><div id="prospectBox" class="card sub">Loading…</div>';
 
@@ -1032,7 +1073,8 @@
       if(field==='referred_by_contact_id'){ var nd=await syncDealCredit(id); var rc=v?contact(v):null; await logSystem(id, rc?'Referred by '+fullName(rc)+(nd?'; credit updated on '+nd+' deal'+(nd>1?'s':''):''):'Referral credit removed'+(nd?' from '+nd+' deal'+(nd>1?'s':''):'')); }
       toast('Saved');
       if(field==='name' && old!==v) await logSystem(id, 'Renamed from '+old);
-      if(['status','do_not_contact','conflict_flag','referred_by_contact_id','name'].indexOf(field)>=0){ await refresh(); openCompany(id); } else render();
+      if(field==='kind' && old!==v) await logSystem(id, 'Type '+(KIND_LABEL[old||'company'])+' → '+KIND_LABEL[v]);
+      if(['status','do_not_contact','conflict_flag','referred_by_contact_id','name','kind'].indexOf(field)>=0){ await refresh(); openCompany(id); } else render();
     }catch(e){ co[field]=old; toast('Save failed: '+e.message); }
   }
   async function logSystem(companyId, body){
@@ -1155,7 +1197,7 @@
         return '<tr><td>'+nameCell+'</td><td>'+(co?esc(co.name):'<span class="sub">Individual</span>')+'</td><td>'+typeCell+'</td><td>'+statusCell+'</td>'+
           '<td>'+x.prod.companies+'</td><td>'+x.prod.deals+'</td><td>'+x.prod.funded+'</td><td>'+(x.prod.commission?esc(fmtMoney(x.prod.commission)):'')+'</td>'+
           '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
-          '<td><input type="date" class="touch-date '+touchClass(c.next_touch_date)+'" data-ctouch="'+esc(c.id)+'" value="'+esc(c.next_touch_date||'')+'"></td></tr>';
+          '<td>'+dateCell('data-ctouch', c.id, c.next_touch_date)+'</td></tr>';
       }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Credit comes from "Referred by" on a company, and carries onto that company\'s deals in the Pipeline.</p>';
   }
   // Silent version of Make COI, used when someone is picked as "Referred by" before they were made a COI.
@@ -1441,7 +1483,7 @@
     var addr=card.address||'', m=addr.match(/,\s*([^,]+),\s*([A-Z]{2})\b/);
     var pre={ name:card.company||((card.firstName||'')+' '+(card.lastName||'')).trim(), first:card.firstName||'', last:card.lastName||'', title:card.title||'',
       email:card.email||'', phone:card.phone||card.mobile||'', mobile:card.mobile||'', website:card.website||'', city:m?(m[1].trim()+', '+m[2]):'',
-      status:isPartner?'Working':'Prospect', source:'Event', roles:roles.length?roles:null,
+      status:isPartner?'Working':'Prospect', source:'Event', roles:roles.length?roles:null, kind:card.cardType==='bank'?'lender':(isPartner?'referral':'company'),
       notes:['Scanned from business card'+(card.credentials?' · '+card.credentials:''), addr?'Address: '+addr:''].filter(Boolean).join('\n') };
     var dups=findDuplicates(pre.name, pre.email, pre.phone);
     var dom=(pre.email.split('@')[1]||'').toLowerCase();
@@ -1586,17 +1628,17 @@
   }
   function syncDelButton(){
     var v=state.view, b=$('delSelectedBtn'); if(!b) return;
-    var set=(v==='companies'||v==='contacts')?state.selected[v]:null;
+    var set=(v==='companies'||v==='lenders')?state.selected.companies:(v==='contacts'?state.selected.contacts:null);
     var n=set?Object.keys(set).filter(function(k){ return set[k]; }).length:0;
     b.style.display=n?'':'none'; b.textContent='Delete '+n+' selected';
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.selected={ companies:{}, contacts:{} }; state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
   ['fOwner','fStatus','fSource','fRole'].forEach(function(id){ $(id).addEventListener('change', function(){ var k={fOwner:'owner',fStatus:'status',fSource:'source',fRole:'role'}[id]; state.filters[k]=this.value; if(k==='owner') state.ownerByView[state.view]=this.value; render(); }); });
   var sh; $('fSearch').addEventListener('input', function(){ var v=this.value; clearTimeout(sh); sh=setTimeout(function(){ state.filters.search=v; render(); }, 150); });
   $('delSelectedBtn').addEventListener('click', function(){
-    var v=state.view, set=state.selected[v]; var ids=Object.keys(set).filter(function(k){ return set[k]; });
-    if(v==='companies') deleteCompanies(ids); else if(v==='contacts') deleteContacts(ids);
+    var v=state.view, set=(v==='lenders')?state.selected.companies:state.selected[v]; var ids=Object.keys(set).filter(function(k){ return set[k]; });
+    if(v==='companies'||v==='lenders') deleteCompanies(ids); else if(v==='contacts') deleteContacts(ids);
   });
   $('refreshBtn').addEventListener('click', function(){ refresh().then(function(){ toast('Refreshed'); }); });
   $('addCompanyBtn').addEventListener('click', function(){ openAddCompany(); });
