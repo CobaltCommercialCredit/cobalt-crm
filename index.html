@@ -667,6 +667,14 @@
     return h;
   }
 
+  // Turn an email domain into a readable company name (akronpolymersolutions.com -> Akron Polymer Solutions).
+  async function prettyCompanyName(domain, displayName){
+    try{
+      await ensureSession();
+      var r=await fetch(SUPABASE_URL+'/functions/v1/scan-card', { method:'POST', headers:sbHeaders(), body:JSON.stringify({ domain:domain, displayName:displayName||'' }) });
+      var j=await r.json(); return r.ok && j.company ? j.company : '';
+    }catch(e){ return ''; }
+  }
   // ---------- inbox leads (strangers who wrote to contact@) ----------
   var FREE_MAIL = /^(gmail|yahoo|hotmail|outlook|live|aol|icloud|me|msn|comcast|att|sbcglobal|verizon|proton|protonmail)\./i;
   function leadCompanyName(l){
@@ -691,7 +699,8 @@
       return;
     }
     var nm=(l.from_name||'').replace(/["']/g,'').trim().split(/\s+/);
-    openAddCompany({ name:leadCompanyName(l), source:'Inbox', first:nm[0]||'', last:nm.slice(1).join(' '), email:l.from_email,
+    var ldom=(l.from_email.split('@')[1]||'').toLowerCase();
+    openAddCompany({ name:leadCompanyName(l), source:'Inbox', first:nm[0]||'', last:nm.slice(1).join(' '), email:l.from_email, guessDomain:FREE_MAIL.test(ldom)?'':ldom,
       onSaved:function(coId){ return patch('crm_inbox_leads', id, { status:'added', company_id:coId, handled_by:who(), handled_at:new Date().toISOString() }); } });
   }
   // ---------- suggested contacts (people you email who are not in the CRM yet) ----------
@@ -762,7 +771,7 @@
         var nm=cleanName(sg.name, sg.email).split(/\s+/), dom=sg.domain||'';
         var lender=looksLikeLender(dom);
         openAddCompany({ name: FREE_MAIL.test(dom)?nm.join(' '):leadCompanyName({ from_email:email, from_name:sg.name }), first:nm[0]||'', last:nm.slice(1).join(' '), email:email,
-          status: lender?'Partner':'', source: lender?'Bank':'', roles: lender?['Lender']:null,
+          status: lender?'Partner':'', source: lender?'Bank':'', roles: lender?['Lender']:null, guessDomain: FREE_MAIL.test(dom)?'':dom, displayName: sg.name,
           onSaved:function(){ return markSuggestion(email,'added').then(rescanPast); } });
         return;
       }
@@ -864,7 +873,7 @@
     prefill=prefill||{};
     showModal('<div class="modal-head"><div><h2 class="display">Add a company</h2><p>The company and its first person. Banks, CPA firms, and law firms are companies too; set the person\'s role below.</p></div><button class="x" data-close>×</button></div>'+
       '<div class="modal-body"><div id="dupWarn"></div><div class="grid2">'+
-      '<div class="fb" style="grid-column:1/-1"><label>Company name *</label><input id="acName" value="'+esc(prefill.name||'')+'"></div>'+
+      '<div class="fb" style="grid-column:1/-1"><label>Company name *</label><input id="acName" value="'+esc(prefill.name||'')+'">'+(prefill.guessDomain?'<div class="sub" id="acNameHint" style="margin-top:4px">Guessed from '+esc(prefill.guessDomain)+'. Fixing spacing…</div>':'')+'</div>'+
       '<div class="fb"><label>Industry</label><input id="acIndustry" value="'+esc(prefill.industry||'')+'"></div><div class="fb"><label>Annual revenue</label><input id="acRevenue" placeholder="e.g. 8.5M"></div>'+
       '<div class="fb"><label>Website</label><input id="acWebsite" value="'+esc(prefill.website||'')+'"></div><div class="fb"><label>City, State</label><input id="acCity" placeholder="Irvine, CA" value="'+esc(prefill.city||'')+'"></div>'+
       '<div class="fb"><label>Status</label><select id="acStatus">'+opts(STATUSES,prefill.status||'Prospect')+'</select></div><div class="fb"><label>Owner</label><select id="acOwner">'+opts(OWNERS, me(), 'Unassigned')+'</select></div>'+
@@ -882,6 +891,15 @@
     };
     ['acName','acEmail','acPhone'].forEach(function(id){ $(id).addEventListener('blur', check); });
     $('acName').focus();
+    if(prefill.guessDomain){
+      if(!$('acWebsite').value) $('acWebsite').value=prefill.guessDomain;
+      var guessed=$('acName').value;
+      prettyCompanyName(prefill.guessDomain, prefill.displayName).then(function(nm){
+        var hint=$('acNameHint'); if(!hint) return;
+        if(nm && $('acName') && $('acName').value===guessed){ $('acName').value=nm; }
+        hint.textContent='Name suggested from '+prefill.guessDomain+'. Check the spelling before saving.';
+      });
+    }
     $('acSave').addEventListener('click', async function(){
       var name=val('acName'); if(!name){ toast('Company name is required'); return; }
       var dups=findDuplicates(name, val('acEmail'), val('acPhone'));
@@ -920,6 +938,7 @@
     if(co.status==='Nurture') banners+='<div class="banner amber"><b>Nurture.</b> '+esc(co.nurture_reason||'No reason recorded.')+(co.next_touch_date?' Re-touch '+esc(fmtDate(co.next_touch_date))+'.':' No re-touch date set.')+'</div>';
 
     var left='<div class="grid2">'+
+      '<div class="fb" style="grid-column:1/-1"><label>Company name</label><input data-f="name" value="'+esc(co.name)+'"></div>'+
       fld('Status','<select data-f="status">'+opts(STATUSES,co.status)+'</select>')+fld('Owner','<select data-f="owner">'+opts(OWNERS,co.owner,'Unassigned')+'</select>')+
       fld('Industry','<input data-f="industry" value="'+esc(co.industry)+'">')+fld('Annual revenue','<input data-f="annual_revenue" data-money="1" value="'+esc(co.annual_revenue==null?'':fmtMoney(co.annual_revenue))+'">')+
       fld('Website','<input data-f="website" value="'+esc(co.website)+'">')+fld('Employees','<input data-f="employees" type="number" value="'+esc(co.employees==null?'':co.employees)+'">')+
@@ -1003,7 +1022,7 @@
     else v=el.value.trim();
     if(field==='status' && v==='Nurture' && co.status!=='Nurture'){ el.value=co.status; openNurture(id); return; }
     var fields={}; fields[field]=v;
-    if(field==='name') fields.dedupe_key=normName(v);
+    if(field==='name'){ if(!v){ el.value=co.name; toast('Company name can\'t be blank'); return; } fields.dedupe_key=normName(v); }
     if(field==='status' && v==='Do Not Contact') fields.do_not_contact=true;
     var old=co[field];
     Object.assign(co, fields);
@@ -1012,7 +1031,8 @@
       if(field==='status' && old!==v) await logSystem(id, 'Status '+(old||'none')+' → '+v);
       if(field==='referred_by_contact_id'){ var nd=await syncDealCredit(id); var rc=v?contact(v):null; await logSystem(id, rc?'Referred by '+fullName(rc)+(nd?'; credit updated on '+nd+' deal'+(nd>1?'s':''):''):'Referral credit removed'+(nd?' from '+nd+' deal'+(nd>1?'s':''):'')); }
       toast('Saved');
-      if(['status','do_not_contact','conflict_flag','referred_by_contact_id'].indexOf(field)>=0){ await refresh(); openCompany(id); } else render();
+      if(field==='name' && old!==v) await logSystem(id, 'Renamed from '+old);
+      if(['status','do_not_contact','conflict_flag','referred_by_contact_id','name'].indexOf(field)>=0){ await refresh(); openCompany(id); } else render();
     }catch(e){ co[field]=old; toast('Save failed: '+e.message); }
   }
   async function logSystem(companyId, body){
