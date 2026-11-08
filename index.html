@@ -63,6 +63,8 @@
   .summary .cell{ background:var(--surface); padding:14px 16px; }
   .summary [data-go]{ cursor:pointer; } .summary .cell[data-go]:hover, .summary .split [data-go]:hover{ background:#eef3fb; }
   .summary .cell.split{ display:flex; padding:0; } .summary .split > div{ flex:1; padding:14px 16px; }
+  .merge-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; } .merge-card{ border:1px solid var(--line); border-radius:8px; padding:12px; cursor:pointer; } .merge-card.on{ border-color:#0047AB; box-shadow:0 0 0 2px rgba(0,71,171,.15); } .merge-card dl{ margin:8px 0 0; display:grid; grid-template-columns:90px 1fr; gap:3px 8px; font-size:13px; } .merge-card dt{ color:var(--ink-faint); } .merge-card dd{ margin:0; word-break:break-word; }
+  @media (max-width:700px){ .merge-grid{ grid-template-columns:1fr; } }
   .special-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#eef3fb; border:1px solid #cfdcf0; border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:13px; }
   .summary .num{ font-family:'Sora',sans-serif; font-size:22px; font-weight:600; line-height:1; }
   .summary .lbl{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:6px; text-transform:uppercase; letter-spacing:.08em; }
@@ -346,6 +348,7 @@
     <select id="fRole"></select>
     <input type="text" id="fSearch" placeholder="Search company, person, email, phone…">
     <div class="spacer"></div>
+    <button class="btn btn-sm" id="mergeSelectedBtn" style="display:none">Merge 2 selected</button>
     <button class="btn btn-sm btn-danger" id="delSelectedBtn" style="display:none"></button>
     <button class="btn btn-sm" id="refreshBtn">Refresh</button>
     <span class="count-pill" id="countPill"></span>
@@ -755,6 +758,16 @@
   }
   function looksLikeLender(d){ d=(d||'').toLowerCase(); return /\.bank$/.test(d) || /(bank|lending|capital|credit|financial|funding|finance)/.test(d.split('.')[0]); }
   function siteDomain(w){ return (w||'').toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').split(/[\/?#]/)[0]; }
+  // Does an email's local part look like this person? nflood, nathan.flood, nathanf, nathan, floodn.
+  function localLooksLike(email, c){
+    var loc=(normEmail(email).split('@')[0]||'').replace(/[^a-z]/g,''), f=(c.first_name||'').toLowerCase().replace(/[^a-z]/g,''), l=(c.last_name||'').toLowerCase().replace(/[^a-z]/g,'');
+    if(!loc||!f||!l) return false;
+    return [f[0]+l, f+l, f+l[0], l+f, l+f[0], l, f].indexOf(loc)>=0 && (loc.length>=4);
+  }
+  function localMatch(email, people){
+    var hits=people.filter(function(c){ return !normEmail(c.email) && localLooksLike(email, c); });
+    return hits.length===1?hits[0]:null;
+  }
   function suggestionMatch(sg){
     var nm=personKey(cleanName(sg.name, sg.email));
     var byName=nm?state.contacts.filter(function(c){ return !normEmail(c.email) && personKey(fullName(c))===nm; }):[];
@@ -763,7 +776,7 @@
     if(dom && !FREE_MAIL.test(dom)){
       var co=state.companies.filter(function(c){ return siteDomain(c.website)===dom; })[0];
       if(!co){ var ct=state.contacts.filter(function(c){ return normEmail(c.email).split('@')[1]===dom && c.company_id; })[0]; if(ct) co=company(ct.company_id); }
-      if(co) return { kind:'domain', company:co };
+      if(co){ var same=localMatch(sg.email, contactsOf(co.id)); if(same) return { kind:'name', contact:same, company:co }; return { kind:'domain', company:co }; }
     }
     return { kind:'none' };
   }
@@ -881,12 +894,12 @@
     renderFilters();
     var v=state.view;
     if(v==='today'){ $('countPill').textContent=''; $('view').innerHTML=renderToday(); }
-    else if(v==='companies') $('view').innerHTML=(state.special==='notouch'?'<div class="special-bar"><span><b>No next touch.</b> Open companies with no follow up date. Set one on each so nothing goes cold.</span><button class="btn btn-sm" data-go="companies">Show all</button></div>':'')+renderCompanies();
-    else if(v==='contacts') $('view').innerHTML=renderContacts();
+    else if(v==='companies') $('view').innerHTML=(state.special==='notouch'?'<div class="special-bar"><span><b>No next touch.</b> Open companies with no follow up date. Set one on each so nothing goes cold.</span><button class="btn btn-sm" data-go="companies">Show all</button></div>':dupBanner('company'))+renderCompanies();
+    else if(v==='contacts') $('view').innerHTML=dupBanner('contacts')+renderContacts();
     else if(v==='inbox') $('view').innerHTML=renderInbox();
     else if(v==='suggested') $('view').innerHTML=renderSuggested();
     else if(v==='cois') $('view').innerHTML=renderCois();
-    else if(v==='lenders') $('view').innerHTML=renderLenders();
+    else if(v==='lenders') $('view').innerHTML=dupBanner('lender')+renderLenders();
     else $('view').innerHTML=renderCampaigns();
     syncDelButton();
   }
@@ -1536,6 +1549,118 @@
   // ---------- events ----------
   async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
 
+  // ---------- duplicates and merge ----------
+  function notDupKey(a,b){ return [a,b].sort().join('~'); }
+  function notDupSet(){ try{ return JSON.parse(localStorage.getItem('crm_not_dups')||'{}'); }catch(e){ return {}; } }
+  function markNotDup(a,b){ var s=notDupSet(); s[notDupKey(a,b)]=1; try{ localStorage.setItem('crm_not_dups', JSON.stringify(s)); }catch(e){} }
+  function contactDupPairs(){
+    var out=[], seen={}, nd=notDupSet(), cs=state.contacts;
+    function add(a,b,why){ var k=notDupKey(a.id,b.id); if(seen[k]||nd[k]) return; seen[k]=1; out.push({ a:a, b:b, why:why }); }
+    for(var i=0;i<cs.length;i++) for(var j=i+1;j<cs.length;j++){
+      var a=cs[i], b=cs[j], ea=normEmail(a.email), eb=normEmail(b.email), pa=normPhone(a.phone||a.mobile), pb=normPhone(b.phone||b.mobile);
+      if(ea && ea===eb) add(a,b,'Same email');
+      else if(pa && pa===pb) add(a,b,'Same phone');
+      else if(a.company_id && a.company_id===b.company_id){
+        var na=personKey(fullName(a)), nb=personKey(fullName(b));
+        if(na && na===nb) add(a,b,'Same name');
+        else if((!ea && eb && localLooksLike(eb,a)) || (!eb && ea && localLooksLike(ea,b))) add(a,b,'Email matches name');
+      }
+    }
+    return out;
+  }
+  function companyDupPairs(kind){
+    var out=[], nd=notDupSet(), cs=state.companies.filter(function(c){ return kindOf(c)===kind; });
+    for(var i=0;i<cs.length;i++) for(var j=i+1;j<cs.length;j++){
+      var a=cs[i], b=cs[j], k=notDupKey(a.id,b.id); if(nd[k]) continue;
+      var na=normName(a.name), nb=normName(b.name), da=siteDomain(a.website), db=siteDomain(b.website);
+      if(na && na===nb) out.push({ a:a, b:b, why:'Same name' });
+      else if(da && da===db) out.push({ a:a, b:b, why:'Same website' });
+    }
+    return out;
+  }
+  function dupBanner(kind){
+    var n=kind==='contacts'?contactDupPairs().length:companyDupPairs(kind).length;
+    if(!n) return '';
+    return '<div class="special-bar"><span><b>'+n+' possible duplicate'+(n>1?'s':'')+'.</b> Merge them so every email and call lands on one record.</span><button class="btn btn-sm" data-dupreview="'+kind+'">Review</button></div>';
+  }
+  function openDupReview(kind){
+    var pairs=kind==='contacts'?contactDupPairs():companyDupPairs(kind);
+    var nm=function(x){ return kind==='contacts'?(fullName(x)||x.email||'(no name)'):x.name; };
+    var sub=function(x){ if(kind!=='contacts') return x.website||x.city||''; var co=company(x.company_id); return [co?co.name:'', x.email||x.phone||''].filter(Boolean).join(' · '); };
+    showModal('<div class="modal-head"><div><h2 class="display">Possible duplicates</h2><p>Merge keeps one record and moves everything from the other onto it. "Not a duplicate" hides the pair on this device.</p></div><button class="x" data-close>×</button></div>'+
+      '<div class="modal-body">'+(pairs.length?pairs.map(function(x){
+        return '<div class="card"><div class="row"><div><b>'+esc(nm(x.a))+'</b> <span class="sub">'+esc(sub(x.a))+'</span><br><b>'+esc(nm(x.b))+'</b> <span class="sub">'+esc(sub(x.b))+'</span><div class="meta">'+esc(x.why)+'</div></div>'+
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" data-notdup="'+esc(kind+'|'+x.a.id+'|'+x.b.id)+'">Not a duplicate</button><button class="btn btn-sm btn-primary" data-mergepair="'+esc(kind+'|'+x.a.id+'|'+x.b.id)+'">Merge</button></div></div></div>';
+      }).join(''):'<div class="sub">No duplicates found.</div>')+'</div>', true);
+  }
+  function filled(o){ return Object.keys(o).filter(function(k){ var v=o[k]; return v!=null && v!=='' && !(Array.isArray(v)&&!v.length); }).length; }
+  function openMerge(kind, idA, idB){
+    var isCt=(kind==='contacts'), get=isCt?contact:company, A=get(idA), B=get(idB);
+    if(!A||!B){ toast('Record not found'); return; }
+    var score=function(x){ return isCt?(filled(x)+(x.last_name?5:0)+(x.referral_partner_id?10:0)):(filled(x)+dealsOf(x.id).length*10+contactsOf(x.id).length); };
+    var keep=score(B)>score(A)?B.id:A.id;
+    var rows=function(x){
+      if(isCt){ var co=company(x.company_id); return [['Name',fullName(x)],['Company',co?co.name:''],['Title',x.title],['Email',x.email],['Phone',x.phone],['Mobile',x.mobile],['Roles',(x.roles||[]).join(', ')],['COI',x.referral_partner_id?'Active COI':''],['Activity',state.activities.filter(function(a){ return a.contact_id===x.id; }).length+' logged']]; }
+      return [['Type',KIND_LABEL[kindOf(x)]],['Status',x.status],['Website',x.website],['City',[x.city,x.state].filter(Boolean).join(', ')],['Owner',x.owner],['People',contactsOf(x.id).map(fullName).join(', ')],['Deals',String(dealsOf(x.id).length)],['Activity',state.activities.filter(function(a){ return a.company_id===x.id; }).length+' logged']];
+    };
+    var card=function(x){ return '<div class="merge-card'+(x.id===keep?' on':'')+'" data-mkeep="'+esc(x.id)+'"><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="radio" name="mkeep" value="'+esc(x.id)+'"'+(x.id===keep?' checked':'')+'>Keep '+esc(isCt?(fullName(x)||x.email):x.name)+'</label><dl>'+rows(x).map(function(r){ return '<dt>'+esc(r[0])+'</dt><dd>'+(r[1]?esc(r[1]):'<span class="sub">blank</span>')+'</dd>'; }).join('')+'</dl></div>'; };
+    showModal('<div class="modal-head"><div><h2 class="display">Merge '+(isCt?'people':'companies')+'</h2><p>Pick the record to keep. The other one\'s '+(isCt?'emails, meetings, deals and COI credit':'people, emails, meetings, deals and tool links')+' move onto it, its blank fields are filled in, and then it\'s deleted.</p></div><button class="x" data-close>×</button></div>'+
+      '<div class="modal-body"><div class="merge-grid">'+card(A)+card(B)+'</div><p class="sub" style="margin-top:10px">If both have an email or phone that differ, the kept one wins and the other is saved in the notes.</p></div>'+
+      '<div class="modal-foot"><span></span><div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="mergeGo">Merge</button></div></div>');
+    Array.prototype.forEach.call(document.querySelectorAll('.merge-card'), function(el){ el.addEventListener('click', function(){ var id=el.getAttribute('data-mkeep'); el.querySelector('input').checked=true; Array.prototype.forEach.call(document.querySelectorAll('.merge-card'), function(o){ o.classList.toggle('on', o===el); }); }); });
+    $('mergeGo').addEventListener('click', async function(){
+      var k=(document.querySelector('input[name="mkeep"]:checked')||{}).value||keep, l=(k===A.id)?B.id:A.id;
+      this.disabled=true;
+      try{ if(isCt) await mergeContacts(k,l); else await mergeCompanies(k,l); }
+      catch(e){ this.disabled=false; toast('Merge failed: '+e.message); }
+    });
+  }
+  function patchWhere(table, col, val, fields){ return api('PATCH', '/'+table+'?'+col+'=eq.'+encodeURIComponent(val), fields, 'return=minimal'); }
+  function blank(v){ return v==null || v==='' || (Array.isArray(v)&&!v.length); }
+  function earliest(a,b){ return !a?b:(!b?a:(a<b?a:b)); }
+  function latest(a,b){ return !a?b:(!b?a:(a>b?a:b)); }
+  async function mergeContacts(keepId, loseId){
+    var k=contact(keepId), l=contact(loseId), f={};
+    ['first_name','last_name','title','email','phone','mobile','linkedin','company_id','owner','source','campaign_id','referred_by_contact_id','referral_partner_id','status'].forEach(function(x){ if(blank(k[x]) && !blank(l[x])) f[x]=l[x]; });
+    if(f.first_name!==undefined && blank(k.last_name) && !blank(k.first_name)) delete f.first_name;
+    var roles=(k.roles||[]).slice(); (l.roles||[]).forEach(function(r){ if(roles.indexOf(r)<0) roles.push(r); }); f.roles=roles;
+    f.next_touch_date=earliest(k.next_touch_date,l.next_touch_date); f.last_touch_date=latest(k.last_touch_date,l.last_touch_date);
+    f.is_primary=!!(k.is_primary||l.is_primary); f.do_not_contact=!!(k.do_not_contact||l.do_not_contact); f.email_opt_out=!!(k.email_opt_out||l.email_opt_out);
+    var extra=[]; if(normEmail(l.email) && normEmail(k.email) && normEmail(l.email)!==normEmail(k.email)) extra.push('Other email: '+l.email);
+    var lp=l.phone||l.mobile; if(normPhone(lp) && normPhone(k.phone||k.mobile) && normPhone(lp)!==normPhone(k.phone||k.mobile)) extra.push('Other phone: '+lp);
+    if(l.notes) extra.push(l.notes);
+    if(extra.length) f.notes=[k.notes||''].concat(extra).filter(Boolean).join('\n');
+    var em=normEmail(f.email||k.email); if(em) f.dedupe_key=em;
+    await patch('crm_contacts', keepId, f);
+    await patchWhere('crm_activities','contact_id',loseId,{ contact_id:keepId });
+    for(var t of ['debt_deals','cre_deals','slb_deals']) await patchWhere(t,'crm_contact_id',loseId,{ crm_contact_id:keepId });
+    await patchWhere('crm_companies','referred_by_contact_id',loseId,{ referred_by_contact_id:keepId });
+    await patchWhere('crm_contacts','referred_by_contact_id',loseId,{ referred_by_contact_id:keepId });
+    await patchWhere('referral_partners','crm_contact_id',loseId,{ crm_contact_id:keepId });
+    await del('crm_contacts', loseId);
+    var cid=f.company_id||k.company_id;
+    if(cid) await logSystem(cid, 'Merged '+(fullName(l)||l.email||'a duplicate')+' into '+(fullName(Object.assign({},k,f))||'this person'));
+    state.selected.contacts={}; closeModal(); await refresh(); toast('Merged');
+    if(cid) openCompany(cid);
+  }
+  async function mergeCompanies(keepId, loseId){
+    var k=company(keepId), l=company(loseId), f={};
+    ['dba','website','industry','annual_revenue','employees','address','city','state','zip','owner','source','campaign_id','referred_by_contact_id','linked_prospect_id','nurture_reason','conflict_note'].forEach(function(x){ if(blank(k[x]) && !blank(l[x])) f[x]=l[x]; });
+    f.next_touch_date=earliest(k.next_touch_date,l.next_touch_date); f.last_touch_date=latest(k.last_touch_date,l.last_touch_date);
+    f.do_not_contact=!!(k.do_not_contact||l.do_not_contact); f.conflict_flag=!!(k.conflict_flag||l.conflict_flag);
+    var hadPrimary=contactsOf(keepId).some(function(c){ return c.is_primary; });
+    await patch('crm_companies', keepId, f);
+    if(hadPrimary) await api('PATCH','/crm_contacts?company_id=eq.'+encodeURIComponent(loseId),{ is_primary:false },'return=minimal');
+    await patchWhere('crm_contacts','company_id',loseId,{ company_id:keepId });
+    await patchWhere('crm_activities','company_id',loseId,{ company_id:keepId });
+    for(var t of ['debt_deals','cre_deals','slb_deals','bank_matrix','prospects','referral_partners']) await patchWhere(t,'crm_company_id',loseId,{ crm_company_id:keepId });
+    await patchWhere('crm_inbox_leads','company_id',loseId,{ company_id:keepId }).catch(function(){});
+    await del('crm_companies', loseId);
+    await logSystem(keepId, 'Merged '+l.name+' into this company');
+    state.selected.companies={}; closeModal(); await refresh(); toast('Merged');
+    openCompany(keepId);
+  }
+
   // Summary numbers are shortcuts: each one opens the list it counts, keeping the current owner filter.
   function go(where){
     var own=state.filters.owner;
@@ -1558,6 +1683,14 @@
   }
   document.addEventListener('click', function(e){
     var g=e.target.closest('[data-go]'); if(g){ go(g.getAttribute('data-go')); return; }
+    var mg=e.target.closest('[data-dupreview],[data-mergepair],[data-notdup]');
+    if(mg){
+      if(mg.hasAttribute('data-dupreview')){ openDupReview(mg.getAttribute('data-dupreview')); return; }
+      var ps=(mg.getAttribute('data-mergepair')||mg.getAttribute('data-notdup')).split('|');
+      if(mg.hasAttribute('data-mergepair')) openMerge(ps[0]==='contacts'?'contacts':'companies', ps[1], ps[2]);
+      else { markNotDup(ps[1], ps[2]); openDupReview(ps[0]); render(); }
+      return;
+    }
     var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],[data-delct],[data-delact],[data-gocois],#addCampaignBtn');
     if(!t) return;
     if(t.hasAttribute('data-close')){ closeModal(); return; }
@@ -1658,11 +1791,16 @@
     var set=(v==='companies'||v==='lenders')?state.selected.companies:(v==='contacts'?state.selected.contacts:null);
     var n=set?Object.keys(set).filter(function(k){ return set[k]; }).length:0;
     b.style.display=n?'':'none'; b.textContent='Delete '+n+' selected';
+    var mb=$('mergeSelectedBtn'); if(mb) mb.style.display=(n===2)?'':'none';
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.selected={ companies:{}, contacts:{} }; state.special=''; state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
   ['fOwner','fStatus','fSource','fRole'].forEach(function(id){ $(id).addEventListener('change', function(){ var k={fOwner:'owner',fStatus:'status',fSource:'source',fRole:'role'}[id]; state.filters[k]=this.value; if(k==='owner') state.ownerByView[state.view]=this.value; render(); }); });
   var sh; $('fSearch').addEventListener('input', function(){ var v=this.value; clearTimeout(sh); sh=setTimeout(function(){ state.filters.search=v; render(); }, 150); });
+  $('mergeSelectedBtn').addEventListener('click', function(){
+    var v=state.view, set=(v==='contacts')?state.selected.contacts:state.selected.companies; var ids=Object.keys(set).filter(function(k){ return set[k]; });
+    if(ids.length===2) openMerge(v==='contacts'?'contacts':'companies', ids[0], ids[1]);
+  });
   $('delSelectedBtn').addEventListener('click', function(){
     var v=state.view, set=(v==='lenders')?state.selected.companies:state.selected[v]; var ids=Object.keys(set).filter(function(k){ return set[k]; });
     if(v==='companies'||v==='lenders') deleteCompanies(ids); else if(v==='contacts') deleteContacts(ids);
