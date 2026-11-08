@@ -61,6 +61,9 @@
   .summary{ display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:var(--line); border:1px solid var(--line);
     border-radius:var(--radius); overflow:hidden; margin-bottom:18px; }
   .summary .cell{ background:var(--surface); padding:14px 16px; }
+  .summary [data-go]{ cursor:pointer; } .summary .cell[data-go]:hover, .summary .split [data-go]:hover{ background:#eef3fb; }
+  .summary .cell.split{ display:flex; padding:0; } .summary .split > div{ flex:1; padding:14px 16px; }
+  .special-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#eef3fb; border:1px solid #cfdcf0; border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:13px; }
   .summary .num{ font-family:'Sora',sans-serif; font-size:22px; font-weight:600; line-height:1; }
   .summary .lbl{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:6px; text-transform:uppercase; letter-spacing:.08em; }
   .num.warn{ color:var(--amber); } .num.bad{ color:var(--red); } .num.accent{ color:var(--cobalt); }
@@ -196,7 +199,7 @@
     .actions .btn{ justify-content:center; padding:14px 12px; font-size:17px; }
     #toolSwitcher, #signOutBtn{ padding:12px 10px; font-size:15px; }
     .summary{ grid-template-columns:repeat(3,1fr); margin-bottom:12px; }
-    .summary .cell{ padding:14px 12px; }
+    .summary .cell{ padding:14px 12px; } .summary .split > div{ padding:14px 12px; }
     .summary .num{ font-size:26px; }
     .summary .lbl{ font-size:11.5px; letter-spacing:.04em; }
     .tabs{ margin-bottom:12px; }
@@ -389,7 +392,8 @@
     openId:null, logType:'Call',
     ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'', cois:'', lenders:'' },
     leads:[], syncStatus:null, suggestions:[],
-    selected:{ companies:{}, contacts:{} }
+    selected:{ companies:{}, contacts:{} },
+    special:''
   };
 
   // ---------- helpers ----------
@@ -556,6 +560,7 @@
     kind=kind||(state.view==='lenders'?'lender':'company');
     return state.companies.filter(function(co){
       if(kindOf(co)!==kind) return false;
+      if(state.special==='notouch' && (co.next_touch_date || ['Prospect','Working','Qualified','Nurture'].indexOf(co.status)<0)) return false;
       if(f.owner && co.owner!==f.owner) return false;
       if(f.status && co.status!==f.status) return false;
       if(!f.status && CLOSED[co.status] && !q) return false;
@@ -843,9 +848,10 @@
     var nurture=live.filter(function(c){ return c.status==='Nurture'; }).length;
     var noTouch=live.filter(function(c){ return !c.next_touch_date && ['Prospect','Working','Qualified','Nurture'].indexOf(c.status)>=0; }).length;
     $('summary').innerHTML=[
-      [live.length,'Active companies',''],[overdue,'Overdue',overdue?'bad':''],[dueToday,'Due today',dueToday?'warn':''],
-      [touches,'Touches · 7 days','accent'],[noTouch,'No next touch',noTouch?'warn':''],[cois+' / '+nurture,'COIs / Nurture','']
-    ].map(function(c){ return '<div class="cell"><div class="num '+c[2]+'">'+c[0]+'</div><div class="lbl">'+c[1]+'</div></div>'; }).join('');
+      [live.length,'Active companies','','companies','Open the Companies tab'],[overdue,'Overdue',overdue?'bad':'','today','Open Today'],[dueToday,'Due today',dueToday?'warn':'','today','Open Today'],
+      [touches,'Touches · 7 days','accent','touches','See the touches from the last 7 days'],[noTouch,'No next touch',noTouch?'warn':'','notouch','Show companies with no next touch']
+    ].map(function(c){ return '<div class="cell" data-go="'+c[3]+'" title="'+c[4]+'"><div class="num '+c[2]+'">'+c[0]+'</div><div class="lbl">'+c[1]+'</div></div>'; }).join('')+
+      '<div class="cell split"><div data-go="cois" title="Open the COIs tab"><div class="num">'+cois+'</div><div class="lbl">COIs</div></div><div data-go="nurture" title="Show Nurture companies"><div class="num">'+nurture+'</div><div class="lbl">Nurture</div></div></div>';
     $('ct-today').textContent=q.filter(function(i){ return i.date<=t; }).length;
     $('ct-companies').textContent=state.companies.filter(function(c){ return kindOf(c)==='company' && !CLOSED[c.status]; }).length;
     $('ct-lenders').textContent=state.companies.filter(function(c){ return kindOf(c)==='lender' && !CLOSED[c.status]; }).length;
@@ -875,7 +881,7 @@
     renderFilters();
     var v=state.view;
     if(v==='today'){ $('countPill').textContent=''; $('view').innerHTML=renderToday(); }
-    else if(v==='companies') $('view').innerHTML=renderCompanies();
+    else if(v==='companies') $('view').innerHTML=(state.special==='notouch'?'<div class="special-bar"><span><b>No next touch.</b> Open companies with no follow up date. Set one on each so nothing goes cold.</span><button class="btn btn-sm" data-go="companies">Show all</button></div>':'')+renderCompanies();
     else if(v==='contacts') $('view').innerHTML=renderContacts();
     else if(v==='inbox') $('view').innerHTML=renderInbox();
     else if(v==='suggested') $('view').innerHTML=renderSuggested();
@@ -1530,7 +1536,28 @@
   // ---------- events ----------
   async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
 
+  // Summary numbers are shortcuts: each one opens the list it counts, keeping the current owner filter.
+  function go(where){
+    var own=state.filters.owner;
+    if(where==='touches'){ openTouches(); return; }
+    state.special=''; state.selected={ companies:{}, contacts:{} };
+    var view={ companies:'companies', notouch:'companies', nurture:'companies', today:'today', cois:'cois' }[where]||'companies';
+    state.view=view; state.filters.owner=own; state.ownerByView[view]=own;
+    if(view==='companies'){ state.filters.status=(where==='nurture')?'Nurture':''; state.filters.search=''; state.filters.source=''; state.filters.role=''; if($('fSearch')) $('fSearch').value=''; }
+    if(where==='notouch') state.special='notouch';
+    render(); window.scrollTo(0, ($('view').getBoundingClientRect().top+window.pageYOffset-120)||0);
+  }
+  function openTouches(){
+    var wkAgo=new Date(Date.now()-7*864e5).toISOString(), own=state.filters.owner;
+    var rows=state.activities.filter(function(a){ return a.completed && a.type!=='System' && a.type!=='Task' && a.created_at>=wkAgo && (!own||a.owner===own); });
+    showModal('<div class="modal-head"><div><h2 class="display">Touches · last 7 days</h2><p>'+rows.length+' logged'+(own?' for '+esc(own):'')+'. Calls, emails, meetings and notes, including Outlook.</p></div><button class="x" data-close>×</button></div>'+
+      '<div class="modal-body">'+(rows.length?'<div class="tablewrap"><table><thead><tr><th>Date</th><th>Type</th><th>Company</th><th>What</th><th>Who</th></tr></thead><tbody>'+rows.map(function(a){
+        var co=company(a.company_id);
+        return '<tr><td>'+esc(fmtDate(a.created_at.slice(0,10)))+'</td><td>'+esc(a.type)+'</td><td>'+(co?'<span class="linkish" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span>':'')+'</td><td>'+esc(String(a.subject||a.body||'').slice(0,90))+'</td><td>'+esc(a.owner||'')+'</td></tr>';
+      }).join('')+'</tbody></table></div>':'<div class="sub">No touches logged in the last 7 days.</div>')+'</div>', true);
+  }
   document.addEventListener('click', function(e){
+    var g=e.target.closest('[data-go]'); if(g){ go(g.getAttribute('data-go')); return; }
     var t=e.target.closest('[data-open],[data-close],[data-sort],[data-q],[data-makecoi],[data-addcontact],[data-editcontact],[data-opendeal],[data-nurture],[data-delco],[data-taskdone],[data-ltype],[data-qd],[data-editcamp],[data-pull],[data-opencontact],[data-leadadd],[data-leaddismiss],[data-sgname],[data-sgdomain],[data-sgnew],[data-sgpick],[data-sgdismiss],[data-delct],[data-delact],[data-gocois],#addCampaignBtn');
     if(!t) return;
     if(t.hasAttribute('data-close')){ closeModal(); return; }
@@ -1633,7 +1660,7 @@
     b.style.display=n?'':'none'; b.textContent='Delete '+n+' selected';
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.selected={ companies:{}, contacts:{} }; state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.addEventListener('click', function(){ state.selected={ companies:{}, contacts:{} }; state.special=''; state.view=b.getAttribute('data-view'); state.filters.owner=state.ownerByView[state.view]||''; $('countPill').textContent=''; render(); }); });
   ['fOwner','fStatus','fSource','fRole'].forEach(function(id){ $(id).addEventListener('change', function(){ var k={fOwner:'owner',fStatus:'status',fSource:'source',fRole:'role'}[id]; state.filters[k]=this.value; if(k==='owner') state.ownerByView[state.view]=this.value; render(); }); });
   var sh; $('fSearch').addEventListener('input', function(){ var v=this.value; clearTimeout(sh); sh=setTimeout(function(){ state.filters.search=v; render(); }, 150); });
   $('delSelectedBtn').addEventListener('click', function(){
@@ -1664,7 +1691,9 @@
     state.filters.owner = state.ownerByView[state.view] || '';
     await refresh();
     var vw=new URLSearchParams(location.search).get('view');
-    if(vw && document.querySelector('.tab[data-view="'+vw+'"]')){ state.view=vw; state.filters.owner=state.ownerByView[vw]||''; render(); }
+    var qp=new URLSearchParams(location.search), qs=qp.get('status'), qf=qp.get('filter');
+    if(qf==='notouch') go('notouch'); else if(qs==='Nurture') go('nurture');
+    else if(vw && document.querySelector('.tab[data-view="'+vw+'"]')){ state.view=vw; state.filters.owner=state.ownerByView[vw]||''; render(); }
     var cid=new URLSearchParams(location.search).get('company');
     if(cid && company(cid)) openCompany(cid);
   }
