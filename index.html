@@ -379,7 +379,7 @@
   function kindOf(co){ return (co&&co.kind)||'company'; }
   function dateCell(attr, id, d){ return '<span class="date-wrap'+(d?'':' empty')+'"><input type="date" class="touch-date '+touchClass(d)+'" '+attr+'="'+esc(id)+'" value="'+esc(d||'')+'"><span class="date-ph">Set</span></span>'; }
   var SOURCES = ['Outbound','COI','Bank','Website','Inbox','SEM','Note card','Govcon','UCC','CRE Prospector','Event','LinkedIn','Other'];
-  var ROLES = ['Owner','Decision maker','CFO/Controller','COI','Lender','CPA','Attorney','Wealth advisor','Other'];
+  var ROLES = ['Owner','Decision maker','CFO/Controller','Bookkeeper','COI','Lender','CPA','Attorney','Wealth advisor','Other'];
   var ACT_TYPES = ['Call','Email','Meeting','Note card','LinkedIn','Text','Note'];
   var OUTCOMES = ['','Connected','Left VM','No answer','Replied','Meeting set','Not interested','Bad info'];
   var CHANNELS = ['Note cards','SEM','Govcon list','UCC','Referral','Event','LinkedIn','Website','Cold email','Other'];
@@ -1497,7 +1497,7 @@
   function handleCard(card){
     var t=(card.title||'').toLowerCase();
     var roles=(CARD_ROLES[card.cardType]||[]).slice();
-    if(card.cardType==='business'){ roles=/cfo|controller|finance/.test(t)?['CFO/Controller']:(/owner|founder|president|ceo|principal/.test(t)?['Owner','Decision maker']:['Decision maker']); }
+    if(card.cardType==='business'){ roles=/cfo|controller|finance/.test(t)?['CFO/Controller']:(/bookkeep|accounting|accounts|office manager/.test(t)?['Bookkeeper']:(/owner|founder|president|ceo|principal/.test(t)?['Owner','Decision maker']:['Decision maker'])); }
     var isPartner=['bank','cpa','attorney','wealth'].indexOf(card.cardType)>=0;
     var addr=card.address||'', m=addr.match(/,\s*([^,]+),\s*([A-Z]{2})\b/);
     var pre={ name:card.company||((card.firstName||'')+' '+(card.lastName||'')).trim(), first:card.firstName||'', last:card.lastName||'', title:card.title||'',
