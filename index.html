@@ -1547,7 +1547,17 @@
   }
 
   // ---------- events ----------
-  async function refresh(){ try{ await loadAll(); render(); }catch(e){ toast('Load failed: '+e.message); } }
+  async function refresh(){ try{ await loadAll(); state.loadedAt=Date.now(); render(); }catch(e){ toast('Load failed: '+e.message); } }
+  // Keep an open tab current: reload quietly every 5 minutes (and when you come back to the tab),
+  // but never while a form or record is open or you're typing, so nothing you're doing gets wiped.
+  function busy(){ var a=document.activeElement; return $('overlay').style.display!=='none' || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id!=='fSearch'); }
+  async function quietRefresh(maxAge){
+    if(document.visibilityState!=='visible' || busy() || !state.loadedAt) { renderSyncLine(); return; }
+    if(Date.now()-state.loadedAt < maxAge){ renderSyncLine(); return; }
+    try{ await loadAll(); state.loadedAt=Date.now(); if(!busy()) render(); }catch(e){}
+  }
+  setInterval(function(){ quietRefresh(5*60000); }, 60000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') quietRefresh(60000); });
 
   // ---------- duplicates and merge ----------
   function notDupKey(a,b){ return [a,b].sort().join('~'); }
