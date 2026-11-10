@@ -1,8 +1,9 @@
 name: Outlook sync watch
 # Checks every hour that the Outlook to CRM sync ran recently without errors.
 # If it hasn't, this run fails and GitHub emails the account owner ("Run failed: Outlook sync watch").
-# The check only reveals healthy or not; no CRM data. The key below is Supabase's public
-# publishable key, the same one already in the CRM page.
+# The check only reveals healthy or not; no CRM data. The apikey below is Supabase's public
+# publishable key, the same one already in the CRM page. The health check itself also requires
+# CRM_WATCH_KEY (a repository secret), so nobody else can query it.
 on:
   schedule:
     - cron: '7 * * * *'
@@ -17,11 +18,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check sync health
+        env:
+          CRM_WATCH_KEY: ${{ secrets.CRM_WATCH_KEY }}
         run: |
+          if [ -z "$CRM_WATCH_KEY" ]; then echo "::error::Add the CRM_WATCH_KEY repository secret (Settings > Secrets and variables > Actions)."; exit 1; fi
           r=$(curl -sf --retry 3 --retry-delay 10 -X POST \
-            "https://pdqywwxyibnapeytoalk.supabase.co/rest/v1/rpc/crm_sync_health" \
+            "https://pdqywwxyibnapeytoalk.supabase.co/rest/v1/rpc/crm_sync_health_check" \
             -H "apikey: sb_publishable_gAk4DGF0YlBxFQkcO92reQ_cb9H91lQ" \
-            -H "Content-Type: application/json" -d '{}') || { echo "::error::Could not reach Supabase to check the Outlook sync."; exit 1; }
+            -H "Content-Type: application/json" -d "{\"p_key\":\"$CRM_WATCH_KEY\"}") || { echo "::error::Could not reach Supabase to check the Outlook sync."; exit 1; }
           echo "Health: $r"
           if echo "$r" | grep -q '"ok" *: *true'; then
             echo "Outlook sync is healthy."
