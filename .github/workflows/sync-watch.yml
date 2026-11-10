@@ -1,0 +1,47 @@
+name: Outlook sync watch
+# Checks every hour that the Outlook to CRM sync ran recently without errors.
+# If it hasn't, this run fails and GitHub emails the account owner ("Run failed: Outlook sync watch").
+# The check only reveals healthy or not; no CRM data. The key below is Supabase's public
+# publishable key, the same one already in the CRM page.
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check sync health
+        run: |
+          r=$(curl -sf --retry 3 --retry-delay 10 -X POST \
+            "https://pdqywwxyibnapeytoalk.supabase.co/rest/v1/rpc/crm_sync_health" \
+            -H "apikey: sb_publishable_gAk4DGF0YlBxFQkcO92reQ_cb9H91lQ" \
+            -H "Content-Type: application/json" -d '{}') || { echo "::error::Could not reach Supabase to check the Outlook sync."; exit 1; }
+          echo "Health: $r"
+          if echo "$r" | grep -q '"ok" *: *true'; then
+            echo "Outlook sync is healthy."
+          else
+            echo "::error::Outlook sync is unhealthy: $r. Open the CRM; if the sync line says failing, the Microsoft client secret may have expired."
+            exit 1
+          fi
+
+  stay-active:
+    # GitHub turns off scheduled jobs after 60 quiet days in a repo. A tiny monthly marker commit,
+    # only when the repo has been quiet, keeps this watch running.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit a marker if the repo has been quiet for 40 days
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 40*86400 )) ]; then
+            date -u +'Sync watch active %Y-%m-%d' > .github/sync-watch-active.txt
+            git config user.name "sync-watch-bot"; git config user.email "actions@github.com"
+            git add .github/sync-watch-active.txt && git commit -m "chore: keep sync watch active" && git push
+          fi
