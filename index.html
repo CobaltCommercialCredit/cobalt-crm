@@ -851,8 +851,38 @@
     if(!st||!st.last_run_at){ el.textContent=''; return; }
     var mins=Math.round((Date.now()-Date.parse(st.last_run_at))/60000);
     var ago=mins<1?'just now':(mins<60?mins+' min ago':Math.round(mins/60)+' hr ago');
-    var bad=st.error||mins>60;
-    el.innerHTML='<span style="color:'+(bad?'var(--red)':'var(--ink-faint)')+'">Outlook sync: '+(st.error?'failing ('+esc(st.error)+'). Check the Microsoft client secret.':'last run '+ago)+'</span>';
+    var bad=st.error||mins>60, msg;
+    if(st.error) msg=explainSyncError(st.error);
+    else if(mins>60) msg='hasn\'t run in '+(mins<120?mins+' min':Math.round(mins/60)+' hr')+'. The 15 minute scheduler may have stopped.';
+    else msg='last run '+ago;
+    el.innerHTML='<span style="color:'+(bad?'var(--red)':'var(--ink-faint)')+'"'+(st.error?' title="'+esc(st.error)+'"':'')+'>Outlook sync: '+esc(msg)+'</span>';
+  }
+  // Turns the sync's raw error into what it means and what to do. Errors per mailbox arrive as "armen: Graph 404 ...; curtis: ...".
+  function explainSyncError(err){
+    var kinds={
+      secret:'Microsoft sign-in failed. The client secret has likely expired and needs renewing.',
+      perms:'Microsoft blocked access. The app\'s mail permissions may have been removed.',
+      missing:'mailbox not found (renamed or removed?).',
+      outage:'Microsoft\'s servers are having trouble. Retrying every 15 minutes; no emails are lost.',
+      save:'emails were read but couldn\'t be saved to the CRM.',
+      other:'failing'
+    };
+    function kindOf(t){
+      if(/sign-in failed|AADSTS|invalid_client|unauthorized_client/i.test(t)) return 'secret';
+      if(/Graph (401|403)/.test(t)) return 'perms';
+      if(/Graph 404/.test(t)) return 'missing';
+      if(/Graph (429|5\d\d)|network|unreadable|Unexpected end of JSON|timed? ?out/i.test(t)) return 'outage';
+      if(/(^|: )db (read|insert)/.test(t)) return 'save';
+      return 'other';
+    }
+    var parts=String(err).split('; ').map(function(x){ var m=x.match(/^([a-z0-9._-]+): (.*)$/i); return { box:m?m[1]:'', text:m?m[2]:x, kind:kindOf(m?m[2]:x) }; });
+    var allSame=parts.every(function(x){ return x.kind===parts[0].kind; });
+    if(allSame && parts[0].kind==='secret') return kinds.secret;
+    if(allSame && (parts[0].kind==='outage'||parts[0].kind==='perms') && parts.length>1) return kinds[parts[0].kind];
+    return parts.map(function(x){
+      var line=x.kind==='other'?'failing ('+x.text+')':kinds[x.kind];
+      return x.box?x.box+'@: '+line:line.charAt(0).toUpperCase()+line.slice(1);
+    }).join(' ');
   }
 
   // ---------- summary ----------
