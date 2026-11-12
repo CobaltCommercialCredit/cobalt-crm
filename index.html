@@ -141,6 +141,7 @@
   .section-title{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-soft); margin:20px 0 8px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
   .checks{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12.5px; }
   .checks label{ display:flex; gap:5px; align-items:center; font-weight:500; color:var(--ink); }
+  .fb input[type=checkbox], .fb input[type=radio], .checks input[type=checkbox]{ width:auto; padding:0; margin:0; flex:0 0 auto; border-radius:0; }
 
   .detail-cols{ display:grid; grid-template-columns:1.05fr 1fr; gap:24px; }
   .banner{ border-radius:8px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
@@ -260,6 +261,8 @@
     .card .meta, .tl .meta{ font-size:13.5px; }
     .tl{ font-size:16px; }
     .checks{ font-size:16px; }
+    .fb input[type=checkbox], .checks input[type=checkbox]{ width:20px; height:20px; padding:0; }
+    .fb input[type=date]{ -webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; min-height:52px; text-align:left; }
     .typebtn{ padding:11px 15px; font-size:16px; }
     .quickdates button{ padding:10px 12px; font-size:15px; }
     .phonebar{ display:flex !important; gap:8px; margin:0 0 12px; }
