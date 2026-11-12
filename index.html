@@ -86,6 +86,7 @@
   tbody tr:hover{ background:#FAFBFC; }
   td{ padding:9px 12px; vertical-align:middle; }
   .linkish{ font-weight:600; color:var(--ink); cursor:pointer; }
+  .add-link{ background:none; border:0; padding:0; font:inherit; font-size:13px; color:#0047AB; cursor:pointer; font-weight:500; } .add-link:hover{ text-decoration:underline; }
   select.compact-select{ font-size:12px; padding:5px 6px; border:1px solid var(--line); border-radius:6px; font-family:inherit; background:var(--surface); color:var(--ink); }
   .icon-del{ background:transparent; border:none; color:var(--ink-faint); padding:5px; border-radius:6px; display:inline-flex; }
   .icon-del:hover{ background:var(--red-tint); color:var(--red); }
@@ -658,11 +659,11 @@
       th('contacts','last_touch_date','Last touch')+th('contacts','next_touch_date','Next touch')+'<th>COI</th><th></th></tr></thead><tbody>'+
       rows.map(function(c){
         var co=company(c.company_id);
-        return '<tr><td class="sel"><input type="checkbox" data-sel="contacts|'+esc(c.id)+'"'+(state.selected.contacts[c.id]?' checked':'')+'></td><td>'+(co?'<span class="linkish" data-open="'+esc(co.id)+'">'+esc(fullName(c)||'(no name)')+'</span>':'<span class="linkish" data-opencontact="'+esc(c.id)+'">'+esc(fullName(c)||'(no name)')+'</span>')+(c.title?'<div class="sub">'+esc(c.title)+'</div>':'')+(c.do_not_contact||c.email_opt_out?' <span class="pill flag">'+(c.do_not_contact?'DNC':'Opted out')+'</span>':'')+'</td>'+
-          '<td>'+(co?esc(co.name):'<span class="sub">Individual</span>')+'</td>'+
+        return '<tr><td class="sel"><input type="checkbox" data-sel="contacts|'+esc(c.id)+'"'+(state.selected.contacts[c.id]?' checked':'')+'></td><td>'+'<span class="linkish" data-editcontact="'+esc(c.id)+'" title="Edit this person">'+esc(fullName(c)||'(no name)')+'</span>'+(c.title?'<div class="sub">'+esc(c.title)+'</div>':'')+(c.do_not_contact||c.email_opt_out?' <span class="pill flag">'+(c.do_not_contact?'DNC':'Opted out')+'</span>':'')+'</td>'+
+          '<td>'+(co?'<span class="linkish" style="font-weight:500" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span>':'<span class="sub">Individual</span>')+'</td>'+
           '<td>'+(c.roles||[]).map(function(r){ return '<span class="pill role">'+esc(r)+'</span>'; }).join(' ')+'</td>'+
-          '<td>'+(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'')+'</td>'+
-          '<td>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'')+'</td>'+
+          '<td>'+(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'<button class="add-link" data-editcontact="'+esc(c.id)+'" data-focus="cfEmail">+ Add email</button>')+'</td>'+
+          '<td>'+(c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'<button class="add-link" data-editcontact="'+esc(c.id)+'" data-focus="cfPhone">+ Add phone</button>')+'</td>'+
           '<td>'+esc(fmtDate(c.last_touch_date))+'</td>'+
           '<td>'+dateCell('data-ctouch', c.id, c.next_touch_date)+'</td>'+
           '<td>'+(c.referral_partner_id?'<button class="btn btn-sm" data-gocois="1">Active COI</button>':(isReferralSource(c)?'<button class="btn btn-sm" data-makecoi="'+esc(c.id)+'">Make COI</button>':''))+'</td>'+
@@ -1013,7 +1014,7 @@
         return '<div class="card"><div class="row"><div><b class="linkish" data-editcontact="'+esc(c.id)+'">'+esc(fullName(c)||'(no name)')+'</b>'+(c.is_primary?' <span class="pill">Primary</span>':'')+(c.title?' <span class="sub">'+esc(c.title)+'</span>':'')+
           '<div class="meta">'+[c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'', c.phone?'<a href="tel:'+esc(c.phone)+'">'+esc(c.phone)+'</a>':'', c.mobile?esc(c.mobile)+' (m)':''].filter(Boolean).join(' · ')+'</div>'+
           '<div style="margin-top:4px">'+(c.roles||[]).map(function(r){ return '<span class="pill role">'+esc(r)+'</span>'; }).join(' ')+(c.email_opt_out?' <span class="pill flag">Opted out</span>':'')+'</div></div>'+
-          '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+(c.phone?'<a class="btn btn-sm" href="tel:'+esc(c.phone)+'">Call</a>':'')+(c.email?'<a class="btn btn-sm" href="mailto:'+esc(c.email)+'">Email</a>':'')+'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'">Edit</button>'+coiControl(c)+'</div></div></div>';
+          '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+(c.phone?'<a class="btn btn-sm" href="tel:'+esc(c.phone)+'">Call</a>':'')+(c.email?'<a class="btn btn-sm" href="mailto:'+esc(c.email)+'">Email</a>':'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'" data-focus="cfEmail">+ Add email</button>')+'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'">Edit</button>'+coiControl(c)+'</div></div></div>';
       }).join(''):'<div class="sub">No people yet.</div>');
 
     if(kindOf(co)==='lender') left+='<div class="section-title">Lender</div><div class="sub">This is a bank or lender we place deals with, so it has no deal pipeline of its own. <a href="'+TOOL+'cobalt-bank-matrix/" target="_blank" rel="noopener">Open the Bank Matrix</a> for programs and appetite.</div>';
@@ -1164,9 +1165,11 @@
           co=target?{ id:target }:null;
         }
         if(rec.is_primary && co){ var others=contactsOf(co.id).filter(function(o){ return o.is_primary && (!c||o.id!==c.id); }); for(var i=0;i<others.length;i++) await patch('crm_contacts', others[i].id, { is_primary:false }); }
+        var newEmail=rec.email && normEmail(rec.email)!==normEmail(c?c.email:'');
         if(c){ await patch('crm_contacts', c.id, rec); }
         else { rec.id=uid('ct'); rec.company_id=co?co.id:null; rec.owner=co?co.owner:me(); rec.source=co?co.source:''; rec.status=co?co.status:'Prospect'; rec.created_by=who(); await insert('crm_contacts',[rec]); if(co) await logSystem(co.id, 'Added contact '+((rec.first_name+' '+rec.last_name).trim()||rec.email)); }
         await refresh(); toast('Saved'); if(co && company(co.id)) openCompany(co.id); else closeModal();
+        if(newEmail) rescanPast();
       }catch(e){ this.disabled=false; toast('Save failed: '+e.message); }
     });
     if(c) $('cfDelete').addEventListener('click', async function(){
@@ -1711,7 +1714,7 @@
     if(t.hasAttribute('data-q')){ queueAction(t.getAttribute('data-q'), t.getAttribute('data-k')); return; }
     if(t.hasAttribute('data-makecoi')){ makeCOI(t.getAttribute('data-makecoi')); return; }
     if(t.hasAttribute('data-addcontact')){ openContactForm(t.getAttribute('data-addcontact')); return; }
-    if(t.hasAttribute('data-editcontact')){ openContactForm(null, t.getAttribute('data-editcontact')); return; }
+    if(t.hasAttribute('data-editcontact')){ openContactForm(null, t.getAttribute('data-editcontact')); var fx=t.getAttribute('data-focus'); if(fx&&$(fx)) setTimeout(function(){ $(fx).focus(); }, 50); return; }
     if(t.hasAttribute('data-opendeal')){ openDealForm(t.getAttribute('data-opendeal')); return; }
     if(t.hasAttribute('data-nurture')){ openNurture(t.getAttribute('data-nurture')); return; }
     if(t.hasAttribute('data-gocois')){ state.view='cois'; state.filters.owner=state.ownerByView.cois||''; render(); return; }

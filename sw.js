@@ -1,7 +1,7 @@
 // Cobalt CRM service worker.
 // Keeps only the app shell (this page, its icons, its manifest) on the phone so the app opens fast.
 // It never caches data: every request to the database, sign-in, or card scanner goes straight to the network.
-const SHELL = 'cobalt-crm-shell-v8';
+const SHELL = 'cobalt-crm-shell-v9';
 const SHELL_FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
