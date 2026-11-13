@@ -488,7 +488,7 @@
       get('/crm_inbox_leads?select=*&status=eq.new&order=received_at.desc&limit=200').catch(function(){ return []; }),
       api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; }),
       get('/crm_suggested_contacts?select=*&order=last_seen.desc&limit=300').catch(function(){ return []; }),
-      get('/bank_matrix?select=id,crm_company_id').catch(function(){ return []; })
+      get('/bank_matrix?select=id,crm_company_id,bank_name').catch(function(){ return []; })
     ]);
     state.companies=r[0]||[]; state.contacts=r[1]||[]; state.activities=r[2]||[]; state.campaigns=r[3]||[];
     state.deals = (r[4]||[]).map(function(d){ d.table='debt_deals'; d.pipe='Credit'; d.amount=d.estimated_amount; return d; })
@@ -631,13 +631,13 @@
     return '<div class="tablewrap"><table class="tbl-lender"><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('lenders','name','Lender')+'<th>People</th>'+th('lenders','owner','Owner')+th('lenders','last_touch_date','Last touch')+th('lenders','next_touch_date','Next touch')+'<th class="desk-only">Bank Matrix</th><th></th></tr></thead><tbody>'+
       rows.map(function(co){
         var ppl=contactsOf(co.id), cois=ppl.filter(function(c){ return c.referral_partner_id||hasRole(c,'COI'); });
-        var inMatrix=state.banks.some(function(b){ return b.crm_company_id===co.id; });
+        var mb=matrixBankOf(co.id);
         return '<tr><td class="sel"><input type="checkbox" data-sel="companies|'+esc(co.id)+'"'+(state.selected.companies[co.id]?' checked':'')+'></td>'+
           '<td><span class="linkish" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span>'+(co.do_not_contact?' <span class="pill flag">DNC</span>':'')+(cois.length?' <span class="pill role" title="A banker here refers deals to us">Refers deals</span>':'')+'</td>'+
           '<td>'+(ppl.length?ppl.slice(0,3).map(function(c){ return esc(fullName(c)||c.email); }).join(', ')+(ppl.length>3?' +'+(ppl.length-3):''):'<span class="sub">None</span>')+'</td>'+
           '<td>'+esc(co.owner)+'</td><td>'+esc(fmtDate(co.last_touch_date))+'</td>'+
           '<td>'+dateCell('data-touch', co.id, co.next_touch_date)+'</td>'+
-          '<td class="desk-only">'+(inMatrix?'<a class="btn btn-sm" href="'+TOOL+'cobalt-bank-matrix/" target="_blank" rel="noopener">Open</a>':'<span class="sub">Not in matrix</span>')+'</td>'+
+          '<td class="desk-only">'+(mb?'<a class="btn btn-sm" href="'+matrixUrl(mb)+'" target="_blank" rel="noopener">Open</a>':'<button class="btn btn-sm" data-addmatrix="'+esc(co.id)+'">+ Add to Matrix</button>')+'</td>'+
           '<td><button class="icon-del" data-delco="'+esc(co.id)+'" title="Delete lender">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Lenders are where we place deals, not prospects. Their emails and meetings still log here. Programs and appetite live in the Bank Matrix.</p>';
   }
@@ -1050,7 +1050,8 @@
           '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+(c.phone?'<a class="btn btn-sm" href="tel:'+esc(c.phone)+'">Call</a>':'')+(c.email?'<a class="btn btn-sm" href="mailto:'+esc(c.email)+'">Email</a>':'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'" data-focus="cfEmail">+ Add email</button>')+'<button class="btn btn-sm" data-editcontact="'+esc(c.id)+'">Edit</button>'+coiControl(c)+'</div></div></div>';
       }).join(''):'<div class="sub">No people yet.</div>');
 
-    if(kindOf(co)==='lender') left+='<div class="section-title">Lender</div><div class="sub">This is a bank or lender we place deals with, so it has no deal pipeline of its own. <a href="'+TOOL+'cobalt-bank-matrix/" target="_blank" rel="noopener">Open the Bank Matrix</a> for programs and appetite.</div>';
+    if(kindOf(co)==='lender'){ var mbk=matrixBankOf(co.id);
+      left+='<div class="section-title">Lender <span>'+(mbk?'<a class="btn btn-sm" href="'+matrixUrl(mbk)+'" target="_blank" rel="noopener">Open in Bank Matrix</a>':'<button class="btn btn-sm btn-primary" data-addmatrix="'+esc(co.id)+'">+ Add to Bank Matrix</button>')+'</span></div><div class="sub">'+(mbk?'Programs, loan sizes and appetite for this lender live in the Bank Matrix.':'Not in the Bank Matrix yet. Add it when you start placing deals here, then fill in programs and appetite there.')+'</div>'; }
     else if(kindOf(co)==='referral') left+='<div class="section-title">Referral firm</div><div class="sub">A COI\'s firm. Their referrals and credit show on the COIs tab.</div>';
     if(kindOf(co)==='company' || deals.length) left+='<div class="section-title">Deals ('+deals.length+') <span><button class="btn btn-sm btn-primary" data-opendeal="'+esc(id)+'"'+(blocked(co)?' disabled title="Blocked by flag"':'')+'>Open deal</button></span></div>'+
       (deals.length?deals.map(function(d){
@@ -1596,6 +1597,29 @@
   setInterval(function(){ quietRefresh(5*60000); }, 60000);
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') quietRefresh(60000); });
 
+  // ---------- Bank Matrix link for lenders ----------
+  function matrixBankOf(coId){ for(var i=0;i<state.banks.length;i++){ if(state.banks[i].crm_company_id===coId) return state.banks[i]; } return null; }
+  function matrixUrl(b){ return TOOL+'cobalt-bank-matrix/?bank='+encodeURIComponent(b.id); }
+  async function addToMatrix(coId){
+    var co=company(coId); if(!co) return;
+    if(matrixBankOf(coId)){ window.open(matrixUrl(matrixBankOf(coId)),'_blank'); return; }
+    try{
+      // Already in the matrix under the same name but not linked? Link it instead of making a second entry.
+      var same=state.banks.filter(function(b){ return !b.crm_company_id && normName(b.bank_name)===normName(co.name); })[0];
+      var bankId;
+      if(same){ await api('PATCH','/bank_matrix?id=eq.'+encodeURIComponent(same.id),{ crm_company_id:coId },'return=minimal'); bankId=same.id; }
+      else {
+        var p=contactsOf(coId).filter(function(c){ return c.is_primary; })[0]||contactsOf(coId)[0]||{};
+        bankId='bank:'+Date.now()+Math.random().toString(36).slice(2,7);
+        await insert('bank_matrix',[{ id:bankId, bank_name:co.name, relationship_status:'Prospecting', assigned_to:['Curtis','Armen','Lina','Alex'].indexOf(co.owner)>=0?co.owner:'',
+          contact_name:fullName(p)||'', phone:p.phone||p.mobile||'', email:p.email||'', crm_company_id:coId, created_at:new Date().toISOString() }]);
+      }
+      await logSystem(coId, same?'Linked to its existing Bank Matrix entry':'Added to the Bank Matrix as Prospecting');
+      await refresh(); toast(same?'Linked to the Bank Matrix':'Added to the Bank Matrix');
+      if($('overlay').style.display!=='none') openCompany(coId);
+    }catch(e){ toast('Could not add: '+e.message); }
+  }
+
   // ---------- duplicates and merge ----------
   function notDupKey(a,b){ return [a,b].sort().join('~'); }
   function notDupSet(){ try{ return JSON.parse(localStorage.getItem('crm_not_dups')||'{}'); }catch(e){ return {}; } }
@@ -1730,6 +1754,7 @@
   }
   document.addEventListener('click', function(e){
     var g=e.target.closest('[data-go]'); if(g){ go(g.getAttribute('data-go')); return; }
+    var am=e.target.closest('[data-addmatrix]'); if(am){ am.disabled=true; addToMatrix(am.getAttribute('data-addmatrix')); return; }
     var mg=e.target.closest('[data-dupreview],[data-mergepair],[data-notdup]');
     if(mg){
       if(mg.hasAttribute('data-dupreview')){ openDupReview(mg.getAttribute('data-dupreview')); return; }
