@@ -679,6 +679,7 @@
     var bySource={}, byCampaign={};
     function bucket(map,k){ if(!map[k]) map[k]={ companies:0, qualified:0, deals:0, funded:0, commission:0 }; return map[k]; }
     state.companies.forEach(function(co){
+      if(kindOf(co)!=='company') return; // lenders and COI firms aren't leads, so they don't count toward sources or campaigns
       var ds=dealsOf(co.id), funded=ds.filter(function(d){ return d.stage==='Funded'||d.stage==='SLB Closed'; });
       var comm=funded.reduce(function(s,d){ return s+(Number(d.actual_commission)||0); },0);
       [bucket(bySource, co.source||'Unknown')].concat(co.campaign_id?[bucket(byCampaign, co.campaign_id)]:[]).forEach(function(b){
@@ -702,7 +703,7 @@
     $('countPill').textContent='';
     var srcRows=Object.keys(a.bySource).sort(function(x,y){ return a.bySource[y].companies-a.bySource[x].companies; });
     var h='<div class="section-title" style="margin-top:0">By source</div><div class="tablewrap"><table><thead><tr><th>Source</th><th>Companies</th><th>Qualified</th><th>Deals opened</th><th>Funded</th><th>Funded commission</th></tr></thead><tbody>'+
-      (srcRows.length?srcRows.map(function(k){ var b=a.bySource[k]; return '<tr><td><b>'+esc(k)+'</b></td><td>'+b.companies+'</td><td>'+b.qualified+'</td><td>'+b.deals+'</td><td>'+b.funded+'</td><td>'+esc(fmtMoney(b.commission)||'$0')+'</td></tr>'; }).join(''):'<tr><td colspan="6" class="sub">No companies yet.</td></tr>')+'</tbody></table></div>';
+      (srcRows.length?srcRows.map(function(k){ var b=a.bySource[k]; return '<tr><td><b>'+esc(k)+'</b></td><td>'+b.companies+'</td><td>'+b.qualified+'</td><td>'+b.deals+'</td><td>'+b.funded+'</td><td>'+esc(fmtMoney(b.commission)||'$0')+'</td></tr>'; }).join(''):'<tr><td colspan="6" class="sub">No companies yet.</td></tr>')+'</tbody></table></div><p class="sub" style="margin-top:6px">Prospects and clients only, by where the lead came from. Lenders and COI firms aren\'t counted. "Bank" here means a banker sent you the borrower.</p>';
     h+='<div class="section-title">Campaigns <button class="btn btn-sm btn-primary" id="addCampaignBtn">+ Campaign</button></div><div class="tablewrap"><table><thead><tr><th>Campaign</th><th>Channel</th><th>Started</th><th>Cost</th><th>Companies</th><th>Deals</th><th>Funded</th><th>Commission</th><th>Cost per deal</th><th></th></tr></thead><tbody>'+
       (state.campaigns.length?state.campaigns.map(function(c){ var b=a.byCampaign[c.id]||{companies:0,deals:0,funded:0,commission:0};
         return '<tr><td><b>'+esc(c.name)+'</b>'+(c.active?'':' <span class="pill">Ended</span>')+'</td><td>'+esc(c.channel)+'</td><td>'+esc(fmtDate(c.started_on))+'</td><td>'+esc(fmtMoney(c.cost))+'</td><td>'+b.companies+'</td><td>'+b.deals+'</td><td>'+b.funded+'</td><td>'+esc(fmtMoney(b.commission)||'$0')+'</td><td>'+(c.cost&&b.deals?esc(fmtMoney(c.cost/b.deals)):'')+'</td><td><button class="btn btn-sm" data-editcamp="'+esc(c.id)+'">Edit</button></td></tr>'; }).join('')
@@ -828,7 +829,7 @@
         var nm=cleanName(sg.name, sg.email).split(/\s+/), dom=sg.domain||'';
         var lender=looksLikeLender(dom);
         openAddCompany({ name: FREE_MAIL.test(dom)?nm.join(' '):leadCompanyName({ from_email:email, from_name:sg.name }), first:nm[0]||'', last:nm.slice(1).join(' '), email:email,
-          status: lender?'Partner':'', source: lender?'Bank':'', roles: lender?['Lender']:null, kind: lender?'lender':'company', guessDomain: FREE_MAIL.test(dom)?'':dom, displayName: sg.name,
+          status: lender?'Partner':'', source: '', roles: lender?['Lender']:null, kind: lender?'lender':'company', guessDomain: FREE_MAIL.test(dom)?'':dom, displayName: sg.name,
           onSaved:function(){ return markSuggestion(email,'added').then(rescanPast); } });
         return;
       }
