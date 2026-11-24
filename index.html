@@ -206,8 +206,9 @@
     .summary .cell{ padding:14px 12px; } .summary .split > div{ padding:14px 12px; }
     .summary .num{ font-size:26px; }
     .summary .lbl{ font-size:11.5px; letter-spacing:.04em; }
-    .tabs{ margin-bottom:12px; }
-    .tab{ padding:13px 14px; font-size:17px; }
+    .tabs{ margin-bottom:12px; overflow-y:hidden; overscroll-behavior-x:contain; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .tabs::-webkit-scrollbar{ display:none; }
+    .tab{ padding:13px 14px; font-size:17px; margin-bottom:0; }
     .tab .ct{ font-size:13px; }
     .filterbar select, .filterbar input[type=text]{ font-size:17px; padding:13px 12px; flex:1 1 100%; }
     .filterbar #refreshBtn, .filterbar #delSelectedBtn{ display:none !important; }
@@ -924,9 +925,17 @@
     $('fSearch').style.display=(simple&&v!=='cois'&&v!=='lenders')?'none':'';
     $('fOwner').style.display=(v==='inbox'||v==='suggested')?'none':'';
   }
+  // On the phone the tab row scrolls sideways; keep the selected tab on screen (does nothing when all tabs fit).
+  function keepActiveTabInView(){
+    var at=document.querySelector('.tab.active'); if(!at) return; var row=at.parentNode;
+    var l=at.offsetLeft-row.offsetLeft, r=l+at.offsetWidth;
+    if(l<row.scrollLeft) row.scrollLeft=Math.max(0,l-16);
+    else if(r>row.scrollLeft+row.clientWidth) row.scrollLeft=r-row.clientWidth+16;
+  }
   function render(){
     renderSummary();
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(b){ b.classList.toggle('active', b.getAttribute('data-view')===state.view); });
+    keepActiveTabInView();
     renderFilters();
     var v=state.view;
     if(v==='today'){ $('countPill').textContent=''; $('view').innerHTML=renderToday(); }
