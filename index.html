@@ -185,11 +185,11 @@
   #csvInput{ display:none; }
   ::selection{ background:var(--cobalt-tint); }
 
-  .phone-only{ display:none !important; }
+  .phone-only{ display:none !important; } .phone-block{ display:none; }
   .phone-label{ display:none; }
   #cardInput{ display:none; }
   @media (max-width:700px){
-    .phone-only{ display:inline-flex !important; }
+    .phone-only{ display:inline-flex !important; } .phone-block{ display:block; }
     .phone-label{ display:inline; } .desk-label{ display:none; }
     .desk-only{ display:none !important; }
     body{ padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
@@ -244,6 +244,9 @@
     .tbl-co td:nth-child(2){ width:100%; }
     .tbl-lender th:nth-child(1), .tbl-lender td:nth-child(1), .tbl-lender th:nth-child(3), .tbl-lender td:nth-child(3), .tbl-lender th:nth-child(4), .tbl-lender td:nth-child(4), .tbl-lender th:nth-child(5), .tbl-lender td:nth-child(5), .tbl-lender th:nth-child(n+7), .tbl-lender td:nth-child(n+7){ display:none; }
     .tbl-lender td:nth-child(2){ width:100%; }
+    .tbl-buyer th:nth-child(1), .tbl-buyer td:nth-child(1), .tbl-buyer th:nth-child(3), .tbl-buyer td:nth-child(3), .tbl-buyer th:nth-child(4), .tbl-buyer td:nth-child(4), .tbl-buyer th:nth-child(5), .tbl-buyer td:nth-child(5), .tbl-buyer th:nth-child(6), .tbl-buyer td:nth-child(6), .tbl-buyer th:nth-child(8), .tbl-buyer td:nth-child(8){ display:none; }
+    .tbl-buyer td:nth-child(2){ width:100%; }
+    .tbl-intro th:nth-child(4), .tbl-intro td:nth-child(4), .tbl-intro th:nth-child(6), .tbl-intro td:nth-child(6), .tbl-intro th:nth-child(8), .tbl-intro td:nth-child(8){ display:none; }
     .tbl-co .pill{ font-size:12.5px; padding:3px 8px; }
     .tablewrap table{ min-width:0; }
     .tbl-co th:nth-child(1), .tbl-co td:nth-child(1), .tbl-co th:nth-child(n+4):nth-child(-n+9), .tbl-co td:nth-child(n+4):nth-child(-n+9){ display:none; }
@@ -342,6 +345,7 @@
     <button class="tab" data-view="contacts">Contacts<span class="ct" id="ct-contacts">0</span></button>
     <button class="tab" data-view="cois">COIs<span class="ct" id="ct-cois">0</span></button>
     <button class="tab" data-view="lenders">Lenders<span class="ct" id="ct-lenders">0</span></button>
+    <button class="tab" data-view="buyers">PE &amp; Buyers<span class="ct" id="ct-buyers">0</span></button>
     <button class="tab" data-view="suggested">Suggested<span class="ct" id="ct-suggested">0</span></button>
     <button class="tab" data-view="inbox">Inbox leads<span class="ct" id="ct-inbox">0</span></button>
     <button class="tab" data-view="campaigns">Sources &amp; Campaigns</button>
@@ -380,12 +384,17 @@
   var STATUSES = ['Prospect','Working','Qualified','Client','Partner','Nurture','Dead','Do Not Contact'];
   var CLOSED = { 'Dead':1, 'Do Not Contact':1 };
   // Every company record has a type. Only 'company' (prospects and clients) shows on the Companies tab.
-  var KINDS = [{ v:'company', l:'Company (prospect or client)' },{ v:'lender', l:'Lender / bank' },{ v:'referral', l:'Referral firm (COI\'s firm)' }];
-  var KIND_LABEL = { company:'Company', lender:'Lender', referral:'Referral firm' };
+  var KINDS = [{ v:'company', l:'Company (prospect or client)' },{ v:'lender', l:'Lender / bank' },{ v:'referral', l:'Referral firm (COI\'s firm)' },{ v:'buyer', l:'PE firm / buyer' }];
+  var KIND_LABEL = { company:'Company', lender:'Lender', referral:'Referral firm', buyer:'PE / Buyer' };
+  var BUYER_TYPES = ['PE fund','Family office','Independent sponsor','Search fund','Strategic','Holding company','Other'];
+  var INTRO_STAGES = ['Introduced','In talks','LOI signed','Closed','Fee paid','Dead'];
+  function introOpen(i){ return i.stage!=='Fee paid' && i.stage!=='Dead'; }
+  function introAfter(i, stage){ return INTRO_STAGES.indexOf(i.stage)>=INTRO_STAGES.indexOf(stage) && i.stage!=='Dead'; }
+  function expectedFee(i){ if(i.fee_type==='Flat') return Number(i.fee_flat)||0; return (Number(i.est_ev)||0)*(Number(i.fee_pct)||0)/100; }
   function kindOf(co){ return (co&&co.kind)||'company'; }
   function dateCell(attr, id, d){ return '<span class="date-wrap'+(d?'':' empty')+'"><input type="date" class="touch-date '+touchClass(d)+'" '+attr+'="'+esc(id)+'" value="'+esc(d||'')+'"><span class="date-ph">Set</span></span>'; }
   var SOURCES = ['Outbound','COI','Bank','Website','Inbox','SEM','Note card','Govcon','UCC','CRE Prospector','Event','LinkedIn','Other'];
-  var ROLES = ['Owner','Decision maker','CFO/Controller','Bookkeeper','COI','Lender','CPA','Attorney','Wealth advisor','Other'];
+  var ROLES = ['Owner','Decision maker','CFO/Controller','Bookkeeper','COI','Lender','PE / Buyer','CPA','Attorney','Wealth advisor','Other'];
   var ACT_TYPES = ['Call','Email','Meeting','Note card','LinkedIn','Text','Note'];
   var OUTCOMES = ['','Connected','Left VM','No answer','Replied','Meeting set','Not interested','Bad info'];
   var CHANNELS = ['Note cards','SEM','Govcon list','UCC','Referral','Event','LinkedIn','Website','Cold email','Other'];
@@ -395,11 +404,11 @@
 
   var state = {
     session:null, view:'today',
-    companies:[], contacts:[], activities:[], campaigns:[], deals:[], partners:[], banks:[],
+    companies:[], contacts:[], activities:[], campaigns:[], deals:[], partners:[], banks:[], intros:[],
     filters:{ owner:'', status:'', source:'', role:'', search:'' },
-    sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' }, lenders:{ key:'name', dir:'asc' } },
+    sort:{ companies:{ key:'next_touch_date', dir:'asc' }, contacts:{ key:'name', dir:'asc' }, lenders:{ key:'name', dir:'asc' }, buyers:{ key:'name', dir:'asc' } },
     openId:null, logType:'Call',
-    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'', cois:'', lenders:'' },
+    ownerByView:{ today:'', companies:'', contacts:'', campaigns:'', inbox:'', suggested:'', cois:'', lenders:'', buyers:'' },
     leads:[], syncStatus:null, suggestions:[],
     selected:{ companies:{}, contacts:{} },
     special:''
@@ -489,13 +498,14 @@
       get('/crm_inbox_leads?select=*&status=eq.new&order=received_at.desc&limit=200').catch(function(){ return []; }),
       api('POST','/rpc/crm_sync_status',{}).catch(function(){ return null; }),
       get('/crm_suggested_contacts?select=*&order=last_seen.desc&limit=300').catch(function(){ return []; }),
-      get('/bank_matrix?select=id,crm_company_id,bank_name').catch(function(){ return []; })
+      get('/bank_matrix?select=id,crm_company_id,bank_name').catch(function(){ return []; }),
+      get('/crm_introductions?select=*&order=created_at.desc').catch(function(){ return []; })
     ]);
     state.companies=r[0]||[]; state.contacts=r[1]||[]; state.activities=r[2]||[]; state.campaigns=r[3]||[];
     state.deals = (r[4]||[]).map(function(d){ d.table='debt_deals'; d.pipe='Credit'; d.amount=d.estimated_amount; return d; })
       .concat((r[5]||[]).map(function(d){ d.table='cre_deals'; d.pipe='CRE'; d.amount=d.requested_amount; d.instrument_type=CRE_TYPES[d.deal_type]||'CRE'; return d; }))
       .concat((r[6]||[]).map(function(d){ d.table='slb_deals'; d.pipe='SLB'; d.amount=d.estimated_amount; d.instrument_type='SLB'; return d; }));
-    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null; state.suggestions=r[10]||[]; state.banks=r[11]||[];
+    state.partners=r[7]||[]; state.leads=r[8]||[]; state.syncStatus=r[9]||null; state.suggestions=r[10]||[]; state.banks=r[11]||[]; state.intros=r[12]||[];
   }
   function dealOpen(d){ return ['Dead','Funded','SLB Dead','SLB Closed'].indexOf(d.stage)<0; }
   function dealLink(d){
@@ -566,7 +576,7 @@
   // ---------- companies ----------
   function filteredCompanies(kind){
     var f=state.filters, q=f.search.trim().toLowerCase();
-    kind=kind||(state.view==='lenders'?'lender':'company');
+    kind=kind||(state.view==='lenders'?'lender':(state.view==='buyers'?'buyer':'company'));
     return state.companies.filter(function(co){
       if(kindOf(co)!==kind) return false;
       if(state.special==='notouch' && (co.next_touch_date || ['Prospect','Working','Qualified','Nurture'].indexOf(co.status)<0)) return false;
@@ -641,6 +651,127 @@
           '<td class="desk-only">'+(mb?'<a class="btn btn-sm" href="'+matrixUrl(mb)+'" target="_blank" rel="noopener">Open</a>':'<button class="btn btn-sm" data-addmatrix="'+esc(co.id)+'">+ Add to Matrix</button>')+'</td>'+
           '<td><button class="icon-del" data-delco="'+esc(co.id)+'" title="Delete lender">'+TRASH+'</button></td></tr>';
       }).join('')+'</tbody></table></div><p class="sub" style="margin-top:10px">Lenders are where we place deals, not prospects. Their emails and meetings still log here. Programs and appetite live in the Bank Matrix.</p>';
+  }
+
+  // ---------- PE & Buyers: introductions for a search fee, and the firms ----------
+  function introFeeText(i){ return i.fee_type==='Flat'?(fmtMoney(i.fee_flat)||'Flat fee')+' flat':((i.fee_pct!=null&&i.fee_pct!==''?i.fee_pct+'%':'%')+(i.est_ev?' of '+fmtMoney(i.est_ev):'')); }
+  function introWarn(i){ return false; }
+  function buyBoxText(bb){ bb=bb||{}; var p=[];
+    if(bb.type) p.push(bb.type);
+    if(bb.ebitda_min||bb.ebitda_max) p.push('EBITDA '+(fmtMoney(bb.ebitda_min)||'0')+' to '+(fmtMoney(bb.ebitda_max)||'any'));
+    if(bb.rev_min||bb.rev_max) p.push('Revenue '+(fmtMoney(bb.rev_min)||'0')+' to '+(fmtMoney(bb.rev_max)||'any'));
+    if(bb.sectors) p.push(bb.sectors);
+    if(bb.geography) p.push(bb.geography);
+    return p.join(' · '); }
+  function introCard(i, side){
+    var co=company(i.company_id), by=company(i.buyer_id), bc=contact(i.buyer_contact_id);
+    var other=side==='buyer'?co:by;
+    return '<div class="card"><div class="row"><div><b class="linkish" data-open="'+esc(other?other.id:'')+'">'+esc(other?other.name:'(deleted)')+'</b>'+(side!=='buyer'&&bc?' <span class="sub">'+esc(fullName(bc))+'</span>':'')+
+      '<div class="meta">'+esc(i.stage)+' · '+esc(introFeeText(i))+(expectedFee(i)?' · expected '+esc(fmtMoney(expectedFee(i))):'')+(i.introduced_on?' · introduced '+esc(fmtDate(i.introduced_on)):'')+'</div>'+
+      (introWarn(i)?'<div class="meta" style="color:var(--red)">Fee not confirmed in writing</div>':'')+'</div>'+
+      '<button class="btn btn-sm" data-editintro="'+esc(i.id)+'">Edit</button></div></div>';
+  }
+  function renderBuyers(){
+    var own=state.filters.owner, q=state.filters.search.trim().toLowerCase();
+    var intros=state.intros.filter(function(i){ if(own && i.owner!==own) return false; if(!q) return true; var co=company(i.company_id), by=company(i.buyer_id); return ((co&&co.name)+' '+(by&&by.name)).toLowerCase().indexOf(q)>=0; });
+    intros.sort(function(a,b){ var oa=introOpen(a)?0:1, ob=introOpen(b)?0:1; if(oa!==ob) return oa-ob; return INTRO_STAGES.indexOf(b.stage)-INTRO_STAGES.indexOf(a.stage) || String(b.introduced_on||b.created_at).localeCompare(String(a.introduced_on||a.created_at)); });
+    var open=intros.filter(introOpen), expected=open.reduce(function(s,i){ return s+expectedFee(i); },0);
+    var paid=intros.filter(function(i){ return i.stage==='Fee paid'; }).reduce(function(s,i){ return s+(Number(i.actual_fee)||expectedFee(i)); },0);
+    var firms=sortRows(filteredCompanies('buyer'), state.sort.buyers, function(co,k){ return co[k]; });
+    $('countPill').textContent=open.length+' open introduction'+(open.length===1?'':'s');
+    var h='<div class="section-title" style="margin-top:0">Introductions <span><button class="btn btn-sm btn-primary" data-newintro="">+ Introduction</button></span></div>'+
+      '<p class="sub" style="margin:-4px 0 10px">'+open.length+' open · expected fees '+esc(fmtMoney(expected)||'$0')+(paid?' · paid to date '+esc(fmtMoney(paid)):'')+'. Control deals only.</p>'+
+      '<div class="phone-block">'+(intros.length?intros.map(function(i){ var co=company(i.company_id), by=company(i.buyer_id);
+        return '<div class="card"><div><b class="linkish" data-open="'+esc(i.company_id)+'">'+esc(co?co.name:'(deleted)')+'</b> <span class="sub">to</span> <span class="linkish" style="font-weight:500" data-open="'+esc(i.buyer_id)+'">'+esc(by?by.name:'(deleted)')+'</span></div>'+
+          '<div class="meta">'+esc(introFeeText(i))+(expectedFee(i)?' · expected '+esc(fmtMoney(expectedFee(i))):'')+(i.introduced_on?' · introduced '+esc(fmtDate(i.introduced_on)):'')+'</div>'+
+          (introWarn(i)?'<div class="meta" style="color:var(--red)">Fee not confirmed in writing</div>':'')+
+          '<div style="display:flex;gap:8px;margin-top:8px"><select data-introstage="'+esc(i.id)+'" style="flex:1">'+opts(INTRO_STAGES, i.stage)+'</select><button class="btn btn-sm" data-editintro="'+esc(i.id)+'">Edit</button></div></div>';
+      }).join(''):'<div class="sub">No introductions yet.</div>')+'</div>'+
+      '<div class="tablewrap desk-only"><table class="tbl-intro"><thead><tr><th>Company</th><th>Buyer</th><th>Stage</th><th>Fee</th><th>Expected</th><th>Introduced</th><th>Owner</th><th></th></tr></thead><tbody>'+
+      (intros.length?intros.map(function(i){ var co=company(i.company_id), by=company(i.buyer_id);
+        return '<tr><td><span class="linkish" data-open="'+esc(i.company_id)+'">'+esc(co?co.name:'(deleted)')+'</span></td>'+
+          '<td><span class="linkish" style="font-weight:500" data-open="'+esc(i.buyer_id)+'">'+esc(by?by.name:'(deleted)')+'</span></td>'+
+          '<td><select data-introstage="'+esc(i.id)+'">'+opts(INTRO_STAGES, i.stage)+'</select></td>'+
+          '<td>'+esc(introFeeText(i))+'</td><td>'+esc(fmtMoney(expectedFee(i)))+'</td><td>'+esc(fmtDate(i.introduced_on))+'</td>'+
+          '<td>'+esc(i.owner||'')+'</td><td><button class="btn btn-sm" data-editintro="'+esc(i.id)+'">Edit</button></td></tr>';
+      }).join(''):'<tr><td colspan="8" class="sub">No introductions yet. Add the PE firm below, then use + Introduction, or "Introduce to buyer" on a company\'s page.</td></tr>')+'</tbody></table></div>';
+    var allSel=firms.length&&firms.every(function(co){ return state.selected.companies[co.id]; });
+    h+='<div class="section-title">PE firms and buyers ('+firms.length+') <span><button class="btn btn-sm" data-newbuyer="">+ PE firm</button></span></div>'+
+      '<div class="tablewrap"><table class="tbl-buyer"><thead><tr><th class="sel"><input type="checkbox" data-selall="companies"'+(allSel?' checked':'')+' title="Select all shown"></th>'+th('buyers','name','Firm')+'<th>Buy box</th><th>People</th><th>Intros</th>'+th('buyers','last_touch_date','Last touch')+th('buyers','next_touch_date','Next touch')+'<th></th></tr></thead><tbody>'+
+      (firms.length?firms.map(function(co){ var ppl=contactsOf(co.id), n=state.intros.filter(function(i){ return i.buyer_id===co.id; }).length;
+        return '<tr><td class="sel"><input type="checkbox" data-sel="companies|'+esc(co.id)+'"'+(state.selected.companies[co.id]?' checked':'')+'></td>'+
+          '<td><span class="linkish" data-open="'+esc(co.id)+'">'+esc(co.name)+'</span></td>'+
+          '<td class="sub">'+(esc(buyBoxText(co.buy_box))||'Not filled in')+'</td>'+
+          '<td>'+(ppl.length?ppl.slice(0,3).map(function(c){ return esc(fullName(c)||c.email); }).join(', ')+(ppl.length>3?' +'+(ppl.length-3):''):'<span class="sub">None</span>')+'</td>'+
+          '<td>'+n+'</td><td>'+esc(fmtDate(co.last_touch_date))+'</td><td>'+dateCell('data-touch', co.id, co.next_touch_date)+'</td>'+
+          '<td><button class="icon-del" data-delco="'+esc(co.id)+'" title="Delete firm">'+TRASH+'</button></td></tr>';
+      }).join(''):'<tr><td colspan="8" class="sub">No PE firms yet. + PE firm, or set a company\'s Type to "PE firm / buyer".</td></tr>')+'</tbody></table></div>';
+    return h;
+  }
+  function openIntroForm(introId, prefill){
+    var i=introId?state.intros.filter(function(x){ return x.id===introId; })[0]:null; prefill=prefill||{};
+    var targets=state.companies.filter(function(c){ return kindOf(c)==='company' && !CLOSED[c.status]; });
+    var buyers=state.companies.filter(function(c){ return kindOf(c)==='buyer'; });
+    if(!buyers.length){ toast('Add the PE firm first'); openAddCompany({ kind:'buyer', status:'Working', roles:['PE / Buyer'] }); return; }
+    var cur=i||{ company_id:prefill.company_id||'', buyer_id:prefill.buyer_id||'', stage:'Introduced', introduced_on:today(), fee_type:'Percent', control:true, tail_months:24, owner:me()||'' };
+    var co0=company(cur.company_id); if(co0 && targets.indexOf(co0)<0) targets.unshift(co0);
+    var peopleOpts=function(bid){ return opts(contactsOf(bid).map(function(c){ return { v:c.id, l:fullName(c)||c.email }; }), cur.buyer_contact_id||'', 'Anyone at the firm'); };
+    showModal('<div class="modal-head"><div><h2 class="display">'+(i?'Introduction':'New introduction')+'</h2><p>One company introduced to one buyer, with the date and the fee agreed.</p></div><button class="x" data-close>×</button></div><div class="modal-body">'+
+      '<div class="grid2">'+
+      '<div class="fb"><label>Company</label><select id="inCo">'+opts(targets.map(function(c){ return { v:c.id, l:c.name }; }), cur.company_id, 'Pick the company')+'</select></div>'+
+      '<div class="fb"><label>PE firm / buyer</label><select id="inBuyer">'+opts(buyers.map(function(c){ return { v:c.id, l:c.name }; }), cur.buyer_id, 'Pick the buyer')+'</select></div>'+
+      '<div class="fb"><label>Buyer contact</label><select id="inContact">'+peopleOpts(cur.buyer_id)+'</select></div>'+
+      '<div class="fb"><label>Stage</label><select id="inStage">'+opts(INTRO_STAGES, cur.stage)+'</select></div>'+
+      '<div class="fb"><label>Fee</label><select id="inFeeType">'+opts([{ v:'Percent', l:'% of deal value' },{ v:'Flat', l:'Flat fee' }], cur.fee_type)+'</select></div>'+
+      '<div class="fb" id="inPctWrap"><label>Fee %</label><input id="inPct" inputmode="decimal" placeholder="1.5" value="'+esc(cur.fee_pct==null?'':cur.fee_pct)+'"></div>'+
+      '<div class="fb" id="inFlatWrap"><label>Flat fee</label><input id="inFlat" inputmode="decimal" placeholder="$250K" value="'+esc(cur.fee_flat==null?'':fmtMoney(cur.fee_flat))+'"></div>'+
+      '<div class="fb"><label>Est. deal value</label><input id="inEv" inputmode="decimal" placeholder="$30M" value="'+esc(cur.est_ev==null?'':fmtMoney(cur.est_ev))+'"></div>'+
+      '<div class="fb"><label>Introduced on</label><input type="date" id="inIntro" value="'+esc(cur.introduced_on||'')+'"></div>'+
+      '<div class="fb"><label>Closed on</label><input type="date" id="inClosed" value="'+esc(cur.closed_on||'')+'"></div>'+
+      '<div class="fb"><label>Fee received</label><input id="inActual" inputmode="decimal" value="'+esc(cur.actual_fee==null?'':fmtMoney(cur.actual_fee))+'"></div>'+
+      '<div class="fb"><label>Tail (months)</label><input id="inTail" inputmode="numeric" value="'+esc(cur.tail_months==null?'':cur.tail_months)+'"></div>'+
+      '<div class="fb"><label>Owner</label><select id="inOwner">'+opts(OWNERS, cur.owner||'', 'Owner')+'</select></div>'+
+      '</div>'+
+      '<div class="checks" style="margin-top:10px"><label><input type="checkbox" id="inControl"'+(cur.control!==false?' checked':'')+'>Control deal: buyer takes 25% or more and runs the company</label></div>'+
+            '<div class="fb" style="margin-top:10px"><label>Notes</label><textarea id="inNotes" placeholder="Fee terms agreed, who you spoke with">'+esc(cur.notes||'')+'</textarea></div>'+
+      '<div id="inWarn"></div><div id="inCalc" class="sub" style="margin-top:8px"></div>'+
+      '</div><div class="modal-foot">'+(i?'<button class="btn btn-danger" id="inDel">Delete</button>':'<span></span>')+'<div style="display:flex;gap:8px"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="inSave">Save</button></div></div>');
+    function sync(){
+      var flat=val('inFeeType')==='Flat'; $('inPctWrap').style.display=flat?'none':''; $('inFlatWrap').style.display=flat?'':'none';
+      var x={ stage:val('inStage'), fee_type:val('inFeeType'), fee_pct:Number(val('inPct'))||null, fee_flat:parseMoney(val('inFlat')), est_ev:parseMoney(val('inEv')) };
+      var w=[];
+      if(!$('inControl').checked) w.push('Not a control deal. The M&A broker exemption does not cover a success fee on a minority investment; check with counsel first.');
+      $('inWarn').innerHTML=w.map(function(t){ return '<div class="card" style="border-color:var(--red);color:var(--red);margin-top:10px">'+esc(t)+'</div>'; }).join('');
+      var e=expectedFee(x); $('inCalc').textContent=e?'Expected fee: '+fmtMoney(e):'';
+    }
+    ['inStage','inFeeType','inPct','inFlat','inEv','inControl'].forEach(function(k){ $(k).addEventListener('input', sync); $(k).addEventListener('change', sync); });
+    $('inBuyer').addEventListener('change', function(){ $('inContact').innerHTML=opts(contactsOf(this.value).map(function(c){ return { v:c.id, l:fullName(c)||c.email }; }), '', 'Anyone at the firm'); });
+    $('inStage').addEventListener('change', function(){ var st=this.value, t=today();
+      if(introAfter({stage:st},'Introduced') && !val('inIntro')) $('inIntro').value=t;
+      if(introAfter({stage:st},'Closed') && !val('inClosed')) $('inClosed').value=t; sync(); });
+    sync();
+    if(i) $('inDel').addEventListener('click', async function(){ if(!confirm('Delete this introduction record? The dated record is your evidence for the fee.')) return; try{ await del('crm_introductions', i.id); await refresh(); closeModal(); toast('Deleted'); }catch(e){ toast('Delete failed: '+e.message); } });
+    $('inSave').addEventListener('click', async function(){
+      var rec={ company_id:val('inCo'), buyer_id:val('inBuyer'), buyer_contact_id:val('inContact')||null, stage:val('inStage'), fee_type:val('inFeeType'),
+        fee_pct:val('inPct')===''?null:Number(val('inPct')), fee_flat:parseMoney(val('inFlat')), est_ev:parseMoney(val('inEv')), actual_fee:parseMoney(val('inActual')),
+        introduced_on:val('inIntro')||null, closed_on:val('inClosed')||null,
+        tail_months:val('inTail')===''?null:Number(val('inTail')), owner:val('inOwner')||null, notes:val('inNotes')||null, control:$('inControl').checked };
+      if(!rec.company_id||!rec.buyer_id){ toast('Pick the company and the buyer'); return; }
+      if(rec.fee_pct!=null && isNaN(rec.fee_pct)){ toast('Fee % should be a number, like 1.5'); return; }
+      this.disabled=true;
+      try{
+        var co=company(rec.company_id), by=company(rec.buyer_id);
+        if(i){ await patch('crm_introductions', i.id, rec);
+          if(i.stage!==rec.stage){ await logSystem(rec.company_id, 'Introduction to '+(by?by.name:'buyer')+': '+i.stage+' → '+rec.stage); await logSystem(rec.buyer_id, 'Introduction of '+(co?co.name:'company')+': '+i.stage+' → '+rec.stage); } }
+        else { rec.id=uid('intro'); rec.created_by=me()||null; await insert('crm_introductions',[rec]);
+          await logSystem(rec.company_id, 'Introduction to '+(by?by.name:'buyer')+' recorded ('+rec.stage+')'); await logSystem(rec.buyer_id, 'Introduction of '+(co?co.name:'company')+' recorded ('+rec.stage+')'); }
+        await refresh(); toast('Saved'); closeModal();
+      }catch(e){ this.disabled=false; toast('Save failed: '+e.message); }
+    });
+  }
+  async function saveBuyBox(coId){
+    var bb={ type:val('bbType'), ebitda_min:parseMoney(val('bbEmin')), ebitda_max:parseMoney(val('bbEmax')), rev_min:parseMoney(val('bbRmin')), rev_max:parseMoney(val('bbRmax')), sectors:val('bbSectors'), geography:val('bbGeo') };
+    try{ await patch('crm_companies', coId, { buy_box:bb }); var co=company(coId); if(co) co.buy_box=bb; toast('Buy box saved'); }catch(e){ toast('Save failed: '+e.message); }
   }
 
   // ---------- contacts ----------
@@ -905,6 +1036,7 @@
     $('ct-today').textContent=q.filter(function(i){ return i.date<=t; }).length;
     $('ct-companies').textContent=state.companies.filter(function(c){ return kindOf(c)==='company' && !CLOSED[c.status]; }).length;
     $('ct-lenders').textContent=state.companies.filter(function(c){ return kindOf(c)==='lender' && !CLOSED[c.status]; }).length;
+    $('ct-buyers').textContent=state.intros.filter(introOpen).length;
     $('ct-contacts').textContent=state.contacts.length;
     $('ct-inbox').textContent=state.leads.length;
     $('ct-suggested').textContent=state.suggestions.length;
@@ -918,11 +1050,11 @@
     $('fSource').innerHTML=opts(SOURCES, state.filters.source, 'All sources');
     $('fRole').innerHTML=opts(ROLES, state.filters.role, 'All roles');
     var v=state.view;
-    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested'||v==='cois'||v==='lenders');
+    var simple=(v==='today'||v==='campaigns'||v==='inbox'||v==='suggested'||v==='cois'||v==='lenders'||v==='buyers');
     $('fStatus').style.display=simple?'none':'';
     $('fSource').style.display=simple?'none':'';
     $('fRole').style.display=simple?'none':'';
-    $('fSearch').style.display=(simple&&v!=='cois'&&v!=='lenders')?'none':'';
+    $('fSearch').style.display=(simple&&v!=='cois'&&v!=='lenders'&&v!=='buyers')?'none':'';
     $('fOwner').style.display=(v==='inbox'||v==='suggested')?'none':'';
   }
   // On the phone the tab row scrolls sideways; keep the selected tab on screen (does nothing when all tabs fit).
@@ -945,6 +1077,7 @@
     else if(v==='suggested') $('view').innerHTML=renderSuggested();
     else if(v==='cois') $('view').innerHTML=renderCois();
     else if(v==='lenders') $('view').innerHTML=dupBanner('lender')+renderLenders();
+    else if(v==='buyers') $('view').innerHTML=dupBanner('buyer')+renderBuyers();
     else $('view').innerHTML=renderCampaigns();
     syncDelButton();
   }
@@ -1063,6 +1196,20 @@
     if(kindOf(co)==='lender'){ var mbk=matrixBankOf(co.id);
       left+='<div class="section-title">Lender <span>'+(mbk?'<a class="btn btn-sm" href="'+matrixUrl(mbk)+'" target="_blank" rel="noopener">Open in Bank Matrix</a>':'<button class="btn btn-sm btn-primary" data-addmatrix="'+esc(co.id)+'">+ Add to Bank Matrix</button>')+'</span></div><div class="sub">'+(mbk?'Programs, loan sizes and appetite for this lender live in the Bank Matrix.':'Not in the Bank Matrix yet. Add it when you start placing deals here, then fill in programs and appetite there.')+'</div>'; }
     else if(kindOf(co)==='referral') left+='<div class="section-title">Referral firm</div><div class="sub">A COI\'s firm. Their referrals and credit show on the COIs tab.</div>';
+    else if(kindOf(co)==='buyer'){ var bb=co.buy_box||{};
+      left+='<div class="section-title">Buy box <span><button class="btn btn-sm" id="bbSave">Save buy box</button></span></div><div class="grid2">'+
+        '<div class="fb"><label>Type</label><select id="bbType">'+opts(BUYER_TYPES, bb.type||'', 'Type')+'</select></div>'+
+        '<div class="fb"><label>Geography</label><input id="bbGeo" placeholder="National, West Coast" value="'+esc(bb.geography||'')+'"></div>'+
+        '<div class="fb"><label>EBITDA from</label><input id="bbEmin" placeholder="$2M" value="'+esc(fmtMoney(bb.ebitda_min)||'')+'"></div>'+
+        '<div class="fb"><label>EBITDA to</label><input id="bbEmax" placeholder="$10M" value="'+esc(fmtMoney(bb.ebitda_max)||'')+'"></div>'+
+        '<div class="fb"><label>Revenue from</label><input id="bbRmin" value="'+esc(fmtMoney(bb.rev_min)||'')+'"></div>'+
+        '<div class="fb"><label>Revenue to</label><input id="bbRmax" value="'+esc(fmtMoney(bb.rev_max)||'')+'"></div>'+
+        '<div class="fb" style="grid-column:1/-1"><label>Sectors</label><input id="bbSectors" placeholder="Industrial services, distribution, healthcare services" value="'+esc(bb.sectors||'')+'"></div></div>';
+    }
+    var myIntros=state.intros.filter(function(x){ return kindOf(co)==='buyer'?x.buyer_id===id:x.company_id===id; });
+    if(kindOf(co)==='buyer' || (kindOf(co)==='company' && (myIntros.length || ['Qualified','Client','Working','Prospect'].indexOf(co.status)>=0)))
+      left+='<div class="section-title">'+(kindOf(co)==='buyer'?'Introductions to this buyer':'Introductions to buyers')+' ('+myIntros.length+') <span><button class="btn btn-sm" data-newintro="'+esc(id)+'">'+(kindOf(co)==='buyer'?'+ Introduction':'+ Introduce to buyer')+'</button></span></div>'+
+        (myIntros.length?myIntros.map(function(x){ return introCard(x, kindOf(co)==='buyer'?'buyer':'company'); }).join(''):'<div class="sub">'+(kindOf(co)==='buyer'?'None yet.':'Not introduced to any buyer yet.')+'</div>');
     if(kindOf(co)==='company' || deals.length) left+='<div class="section-title">Deals ('+deals.length+') <span><button class="btn btn-sm btn-primary" data-opendeal="'+esc(id)+'"'+(blocked(co)?' disabled title="Blocked by flag"':'')+'>Open deal</button></span></div>'+
       (deals.length?deals.map(function(d){
         return '<div class="card"><div class="row"><div><b>'+esc(d.pipe)+'</b> · '+esc(d.instrument_type||'')+' · '+esc(fmtMoney(d.amount))+'<div class="meta">'+esc(d.stage)+(d.assigned_to?' · '+esc(d.assigned_to):'')+'</div></div>'+
@@ -1736,6 +1883,8 @@
     await patchWhere('crm_activities','company_id',loseId,{ company_id:keepId });
     for(var t of ['debt_deals','cre_deals','slb_deals','bank_matrix','prospects','referral_partners']) await patchWhere(t,'crm_company_id',loseId,{ crm_company_id:keepId });
     await patchWhere('crm_inbox_leads','company_id',loseId,{ company_id:keepId }).catch(function(){});
+    await patchWhere('crm_introductions','company_id',loseId,{ company_id:keepId });
+    await patchWhere('crm_introductions','buyer_id',loseId,{ buyer_id:keepId });
     await del('crm_companies', loseId);
     await logSystem(keepId, 'Merged '+l.name+' into this company');
     state.selected.companies={}; closeModal(); await refresh(); toast('Merged');
@@ -1765,6 +1914,14 @@
   document.addEventListener('click', function(e){
     var g=e.target.closest('[data-go]'); if(g){ go(g.getAttribute('data-go')); return; }
     var am=e.target.closest('[data-addmatrix]'); if(am){ am.disabled=true; addToMatrix(am.getAttribute('data-addmatrix')); return; }
+    var ni=e.target.closest('[data-newintro],[data-editintro],[data-newbuyer],#bbSave');
+    if(ni){
+      if(ni.id==='bbSave'){ if(state.openId) saveBuyBox(state.openId); return; }
+      if(ni.hasAttribute('data-editintro')){ openIntroForm(ni.getAttribute('data-editintro')); return; }
+      if(ni.hasAttribute('data-newbuyer')){ openAddCompany({ kind:'buyer', status:'Working', roles:['PE / Buyer'] }); return; }
+      var cid=ni.getAttribute('data-newintro'), cc=cid&&company(cid);
+      openIntroForm(null, cc?(kindOf(cc)==='buyer'?{ buyer_id:cid }:{ company_id:cid }):{}); return;
+    }
     var mg=e.target.closest('[data-dupreview],[data-mergepair],[data-notdup]');
     if(mg){
       if(mg.hasAttribute('data-dupreview')){ openDupReview(mg.getAttribute('data-dupreview')); return; }
@@ -1808,6 +1965,14 @@
     if(t.hasAttribute('data-touch')){ var co=company(t.getAttribute('data-touch')); if(!co) return; co.next_touch_date=t.value||null; patch('crm_companies', co.id, { next_touch_date:co.next_touch_date }).then(function(){ toast('Next touch set'); render(); }).catch(function(err){ toast('Save failed: '+err.message); }); return; }
     if(t.hasAttribute('data-ctouch')){ var c=contact(t.getAttribute('data-ctouch')); if(!c) return; c.next_touch_date=t.value||null; patch('crm_contacts', c.id, { next_touch_date:c.next_touch_date }).then(function(){ toast('Next touch set'); render(); }).catch(function(err){ toast('Save failed: '+err.message); }); return; }
     if(t.hasAttribute('data-f') && state.openId){ saveCompanyField(state.openId, t.getAttribute('data-f'), t); return; }
+    if(t.hasAttribute('data-introstage')){ var it=state.intros.filter(function(x){ return x.id===t.getAttribute('data-introstage'); })[0]; if(!it) return;
+      var from=it.stage, f={ stage:t.value }, d=today();
+      if(introAfter({stage:t.value},'Introduced') && !it.introduced_on) f.introduced_on=d;
+      if(introAfter({stage:t.value},'Closed') && !it.closed_on) f.closed_on=d;
+      patch('crm_introductions', it.id, f).then(async function(){ var co=company(it.company_id), by=company(it.buyer_id);
+        await logSystem(it.company_id, 'Introduction to '+(by?by.name:'buyer')+': '+from+' → '+t.value); await logSystem(it.buyer_id, 'Introduction of '+(co?co.name:'company')+': '+from+' → '+t.value);
+        await refresh(); toast('Stage saved'); }).catch(function(err){ toast('Save failed: '+err.message); });
+      return; }
   });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && $('overlay').style.display!=='none') closeModal(); });
   $('overlay').addEventListener('mousedown', function(e){ if(e.target.id==='overlay') closeModal(); });
@@ -1835,9 +2000,10 @@
     if(!ok.length){ toast(blockedIds.length===1?'This company has linked deals. Delete or close them in the Pipeline first, or set it to Dead.':'All selected companies have linked deals. Delete or close those in the Pipeline first.'); return false; }
     var people=0, cois=0; ok.forEach(function(id){ contactsOf(id).forEach(function(c){ people++; if(c.referral_partner_id) cois++; }); });
     var label=ok.length===1?company(ok[0]).name:ok.length+' companies';
+    var introsGone=state.intros.filter(function(x){ return ok.indexOf(x.company_id)>=0 || ok.indexOf(x.buyer_id)>=0; }).length;
     var msg='Permanently delete '+label+(people?', '+people+' '+(people===1?'person':'people'):'')+', and all activity history?'+
       (cois?'\n\n'+cois+' COI'+(cois===1?' stays':'s stay')+' keep their referral credit on past deals.':'')+
-      (blockedIds.length?'\n\nSkipping '+blockedIds.length+' with linked deals.':'')+'\n\nFor real relationships, Dead or Do Not Contact keeps the history.';
+      (blockedIds.length?'\n\nSkipping '+blockedIds.length+' with linked deals.':'')+(introsGone?'\n\nThis also deletes '+introsGone+' introduction record'+(introsGone===1?'':'s')+', your evidence for a search fee.':'')+'\n\nFor real relationships, Dead or Do Not Contact keeps the history.';
     if(!confirm(msg)) return false;
     try{
       var ctIds=[]; ok.forEach(function(id){ contactsOf(id).forEach(function(c){ ctIds.push(c.id); }); });
@@ -1870,7 +2036,7 @@
   }
   function syncDelButton(){
     var v=state.view, b=$('delSelectedBtn'); if(!b) return;
-    var set=(v==='companies'||v==='lenders')?state.selected.companies:(v==='contacts'?state.selected.contacts:null);
+    var set=(v==='companies'||v==='lenders'||v==='buyers')?state.selected.companies:(v==='contacts'?state.selected.contacts:null);
     var n=set?Object.keys(set).filter(function(k){ return set[k]; }).length:0;
     b.style.display=n?'':'none'; b.textContent='Delete '+n+' selected';
     var mb=$('mergeSelectedBtn'); if(mb) mb.style.display=(n===2)?'':'none';
@@ -1884,8 +2050,8 @@
     if(ids.length===2) openMerge(v==='contacts'?'contacts':'companies', ids[0], ids[1]);
   });
   $('delSelectedBtn').addEventListener('click', function(){
-    var v=state.view, set=(v==='lenders')?state.selected.companies:state.selected[v]; var ids=Object.keys(set).filter(function(k){ return set[k]; });
-    if(v==='companies'||v==='lenders') deleteCompanies(ids); else if(v==='contacts') deleteContacts(ids);
+    var v=state.view, set=(v==='lenders'||v==='buyers')?state.selected.companies:state.selected[v]; var ids=Object.keys(set).filter(function(k){ return set[k]; });
+    if(v==='companies'||v==='lenders'||v==='buyers') deleteCompanies(ids); else if(v==='contacts') deleteContacts(ids);
   });
   $('refreshBtn').addEventListener('click', function(){ refresh().then(function(){ toast('Refreshed'); }); });
   $('addCompanyBtn').addEventListener('click', function(){ openAddCompany(); });
@@ -1941,7 +2107,7 @@
   }
   (async function(){ loadSession(); if(await ensureSession()) showApp(); else showAuth(); })();
 
-  window.__crm = { scanCard:function(f){ return scanCard(f); }, handleCard:function(c){ return handleCard(c); }, state:state, queueItems:queueItems, findDuplicates:findDuplicates, parseMoney:parseMoney, normName:normName, openImport:openImport, openCompany:openCompany };
+  window.__crm = { openIntroForm:function(a,b){ return openIntroForm(a,b); }, expectedFee:expectedFee, scanCard:function(f){ return scanCard(f); }, handleCard:function(c){ return handleCard(c); }, state:state, queueItems:queueItems, findDuplicates:findDuplicates, parseMoney:parseMoney, normName:normName, openImport:openImport, openCompany:openCompany };
 })();
 </script>
 </body>
